@@ -24,10 +24,11 @@ matches the names of the **created** volumes.
 
 Environment variables that must be configured for the `docker-volume-backup` container.
 
-| Environment Variable           | Description                                                              | Example                |
-|--------------------------------|--------------------------------------------------------------------------|------------------------|
+| Environment Variable           | Description                                                              | Example                  |
+|--------------------------------|--------------------------------------------------------------------------|--------------------------|
 | `CRON_SCHEDULE` | The cron schedule for when backups should run.                           | `* * * * *`              |
 | `BACKUP_HOST_PATH` | The absolute path on the docker host for where backups should be stored. | `/Users/chatton/backups` |
+| `BACKUP_RETENTION_DAYS` | The number of days backups will be stored before they are deleted.       | `7`                      |
 
 
 ## Requirements

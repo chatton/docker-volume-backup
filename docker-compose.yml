@@ -6,6 +6,7 @@ services:
     environment:
       - CRON_SCHEDULE=* * * * *
       - BACKUP_HOST_PATH=${BACKUP_HOST_PATH}
+      - BACKUP_RETENTION_DAYS=7
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
 

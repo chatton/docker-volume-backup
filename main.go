@@ -6,6 +6,7 @@ import (
 	"log"
 	"math/rand"
 	"os"
+	"strconv"
 	"strings"
 	"time"
 
@@ -21,9 +22,10 @@ import (
 )
 
 const (
-	BackupHostPathEnv = "BACKUP_HOST_PATH"
-	CronScheduleEnv   = "CRON_SCHEDULE"
-	DockerLabelPrefix = "ie.cianhatton.backup"
+	BackupHostPathEnv   = "BACKUP_HOST_PATH"
+	CronScheduleEnv     = "CRON_SCHEDULE"
+	BackupRetentionDays = "BACKUP_RETENTION_DAYS"
+	DockerLabelPrefix   = "ie.cianhatton.backup"
 )
 
 func newLabel(s string) string {
@@ -73,7 +75,11 @@ type config struct {
 	// hostPathForBackups is the absolute path that where backups will be stored.
 	hostPathForBackups string
 
+	// cronSchedule is the cron schedule that backups will run on.
 	cronSchedule string
+
+	// retainForDays is the number of days that backups should be stored for.
+	retainForDays int
 }
 
 func fromEnv() config {
@@ -86,21 +92,29 @@ func fromEnv() config {
 	if !ok {
 		panic(fmt.Sprintf("env var %s must be specified!", CronScheduleEnv))
 	}
+
+	var retentionDays int
+	retentionDaysStr, ok := os.LookupEnv(BackupRetentionDays)
+	if ok {
+		var err error
+		retentionDays, err = strconv.Atoi(retentionDaysStr)
+		if err != nil {
+			panic(fmt.Sprintf("error converting %s to an int", retentionDaysStr))
+		}
+	}
+
 	return config{
 		hostPathForBackups: hostPath,
 		cronSchedule:       cronScheule,
+		retainForDays:      retentionDays,
 	}
 }
 
-// performBackup creates a container which mounts the data to be backed up, and creates an archive
-// of the data in the specified hostpath.
-func performBackup(ctx context.Context, cfg config, cli *client.Client, mountPoint types.MountPoint) error {
-	now := time.Now().Format(time.RFC3339)
-	nameOfBackedupArchive := fmt.Sprintf("%s-%s.tar.gz", mountPoint.Name, now)
-
+// runCommandInMountedContainer creates a container which mounts the data to be backed up, and
+// executes a given command.
+func runCommandInMountedContainer(ctx context.Context, cfg config, cli *client.Client, mountPoint types.MountPoint, cmd []string) error {
 	createConfig := &container.Config{
-		Cmd:   []string{"tar", "-czvf", fmt.Sprintf("/backups/%s", nameOfBackedupArchive), "/data"},
-		Image: "busybox:latest",
+		Cmd: cmd,
 	}
 
 	hostConfig := &container.HostConfig{
@@ -154,15 +168,37 @@ func performBackup(ctx context.Context, cfg config, cli *client.Client, mountPoi
 	return nil
 }
 
-// backupContainerMounts backs up the given mounts for the specified container.
-func backupContainerMounts(ctx context.Context, cfg config, cli *client.Client, c types.Container) error {
+// deleteOldBackups deletes backups that are older than a certain age.
+func deleteOldBackups(ctx context.Context, cfg config, cli *client.Client, mountPoint types.MountPoint) error {
+	cmd := []string{"find", "backups", "-mtime", "+7", "-delete"}
+	return runCommandInMountedContainer(ctx, cfg, cli, mountPoint, cmd)
+}
+
+// performBackup creates a container which mounts the data to be backed up, and creates an archive
+// of the data in the specified hostpath.
+func performBackup(ctx context.Context, cfg config, cli *client.Client, mountPoint types.MountPoint) error {
+	now := time.Now().Format(time.RFC3339)
+	nameOfBackedupArchive := fmt.Sprintf("%s-%s.tar.gz", mountPoint.Name, now)
+	cmd := []string{"tar", "-czvf", fmt.Sprintf("/backups/%s", nameOfBackedupArchive), "/data"}
+	return runCommandInMountedContainer(ctx, cfg, cli, mountPoint, cmd)
+}
+
+// handleContainerMount backs up the given mounts for the specified container.
+func handleContainerMount(ctx context.Context, cfg config, cli *client.Client, c types.Container) error {
 	volumesToBackup := extractVolumeNamesFromLabels(c.Labels)
 	for _, m := range c.Mounts {
 		if contains(volumesToBackup, m.Name) {
 			log.Printf("backing up volume: %s (%s)", m.Name, c.ID)
 			err := performBackup(ctx, cfg, cli, m)
 			if err != nil {
-				return err
+				return fmt.Errorf("failed backup: %s", err)
+			}
+
+			if cfg.retainForDays > 0 {
+				log.Printf("removing backups older than %d days\n", cfg.retainForDays)
+				if err := deleteOldBackups(ctx, cfg, cli, m); err != nil {
+					return fmt.Errorf("failed removing old backups: %s", err)
+				}
 			}
 		}
 	}
@@ -198,7 +234,6 @@ func performBackups(cfg config) error {
 	log.Printf("found %d containers to backup", len(containers))
 
 	for _, c := range containers {
-
 		if len(extractVolumeNamesFromLabels(c.Labels)) == 0 {
 			log.Printf("container: %s (%s) does not have any volumes specified, skipping backup", c.Image, c.ID)
 			continue
@@ -207,18 +242,17 @@ func performBackups(cfg config) error {
 		log.Printf("Stopping container: %s (%s)\n", c.Image, c.ID)
 		err := cli.ContainerStop(ctx, c.ID, nil)
 		if err != nil {
-			return err
+			return fmt.Errorf("failed sto stop container: %s", err)
 		}
 
-		err = backupContainerMounts(ctx, cfg, cli, c)
-		if err != nil {
-			log.Printf("error backing up container: %s", err)
+		if err := handleContainerMount(ctx, cfg, cli, c); err != nil {
+			return fmt.Errorf("failed processing container: %s", err)
 		}
 
 		log.Printf("Starting container: %s (%s)\n", c.Image, c.ID)
 		err = cli.ContainerStart(ctx, c.ID, types.ContainerStartOptions{})
 		if err != nil {
-			return err
+			return fmt.Errorf("failed to start container: %s", err)
 		}
 	}
 	return nil
