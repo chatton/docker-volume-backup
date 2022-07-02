@@ -8,7 +8,7 @@ services:
       - BACKUP_HOST_PATH=${BACKUP_HOST_PATH}
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
-      - ${BACKUP_HOST_PATH}:/audiobooks
+      - ${BACKUP_HOST_PATH}:/backups
 
   audiobookshelf:
     labels:
