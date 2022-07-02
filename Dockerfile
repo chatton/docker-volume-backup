@@ -1,4 +1,4 @@
-FROM golang:1.18 as builder
+FROM golang:1.18
 
 ENV GOPATH=""
 ENV GO111MODULE=on
@@ -13,8 +13,4 @@ ADD main.go main.go
 RUN mkdir -p build
 RUN go build -o build
 
-FROM busybox:latest
-
-COPY --from=builder /go/build/docker-volume-backup build/docker-volume-backup
-
-ENTRYPOINT [ "docker-volume-backup" ]
+ENTRYPOINT [ "build/docker-volume-backup" ]

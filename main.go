@@ -114,7 +114,8 @@ func fromEnv() config {
 // executes a given command.
 func runCommandInMountedContainer(ctx context.Context, cfg config, cli *client.Client, mountPoint types.MountPoint, cmd []string) error {
 	createConfig := &container.Config{
-		Cmd: cmd,
+		Cmd:   cmd,
+		Image: "busybox:latest",
 	}
 
 	hostConfig := &container.HostConfig{
@@ -170,7 +171,7 @@ func runCommandInMountedContainer(ctx context.Context, cfg config, cli *client.C
 
 // deleteOldBackups deletes backups that are older than a certain age.
 func deleteOldBackups(ctx context.Context, cfg config, cli *client.Client, mountPoint types.MountPoint) error {
-	cmd := []string{"find", "backups", "-mtime", "+7", "-delete"}
+	cmd := []string{"find", "backups", "-mtime", fmt.Sprintf("+%d", cfg.retainForDays), "-delete"}
 	return runCommandInMountedContainer(ctx, cfg, cli, mountPoint, cmd)
 }
 
@@ -232,6 +233,13 @@ func performBackups(cfg config) error {
 	}
 
 	log.Printf("found %d containers to backup", len(containers))
+
+	_, err = cli.ImagePull(ctx, "busybox:latest", types.ImagePullOptions{})
+	if err != nil {
+		return err
+	}
+	log.Printf("successfully pulled busybox image\n")
+	time.Sleep(time.Second * 5) // TODO: remove this, wait until the image exists instead.
 
 	for _, c := range containers {
 		if len(extractVolumeNamesFromLabels(c.Labels)) == 0 {
