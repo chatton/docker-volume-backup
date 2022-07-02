@@ -12,7 +12,7 @@ env:
   IMAGE_NAME: docker-volume-backup
 
 jobs:
-  goreleaser:
+  build-and-push-image:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
