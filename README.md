@@ -32,14 +32,12 @@ Environment variables that must be configured for the `docker-volume-backup` con
 
 ## Requirements
 
-* The `docker-volume-backup` must have access to the host docker socket. 
-* The specified backup directory should be mounted into the `docker-volume-backup` container. 
+* The `docker-volume-backup` must have access to the host docker socket.
 
 See [this example](./docker-compose.yml)
 
 
 ## Example
-
 
 
 ```bash
