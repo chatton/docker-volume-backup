@@ -1,0 +1,31 @@
+services:
+  docker-volume-backup:
+    container_name: docker-volume-backup
+    build:
+      context: .
+    environment:
+      - CRON_SCHEDULE=* * * * *
+      - BACKUP_HOST_PATH=${BACKUP_HOST_PATH}
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ${BACKUP_HOST_PATH}:/audiobooks
+
+  audiobookshelf:
+    labels:
+      ie.cianhatton.backup.enabled: "true"
+      ie.cianhatton.backup.volumes: "docker-volume-backup_config,docker-volume-backup_metadata"
+    container_name: audiobookshelf
+    image: ghcr.io/advplyr/audiobookshelf:latest
+    environment:
+      - AUDIOBOOKSHELF_UID=99
+      - AUDIOBOOKSHELF_GID=100
+    ports:
+      - 13378:80
+    volumes:
+      - ${AUDIO_BOOKS_DIRECTORY}:/audiobooks
+      - ${PODCASTS_DIRECTORY}:/podcasts
+      - config:/config
+      - metadata:/metadata
+volumes:
+  config:
+  metadata:
