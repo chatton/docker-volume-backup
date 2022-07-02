@@ -16,11 +16,13 @@ import (
 	"github.com/docker/docker/api/types/network"
 	"github.com/docker/docker/client"
 	"github.com/docker/docker/errdefs"
+	"github.com/go-co-op/gocron"
 	specs "github.com/opencontainers/image-spec/specs-go/v1"
 )
 
 const (
 	BackupHostPathEnv = "BACKUP_HOST_PATH"
+	CronScheduleEnv   = "CRON_SCHEDULE"
 	DockerLabelPrefix = "ie.cianhatton.backup"
 )
 
@@ -70,6 +72,8 @@ func contains[T comparable](elems []T, v T) bool {
 type config struct {
 	// hostPathForBackups is the absolute path that where backups will be stored.
 	hostPathForBackups string
+
+	cronSchedule string
 }
 
 func fromEnv() config {
@@ -78,8 +82,13 @@ func fromEnv() config {
 		panic(fmt.Sprintf("env var %s must be specified!", BackupHostPathEnv))
 	}
 
+	cronScheule, ok := os.LookupEnv(CronScheduleEnv)
+	if !ok {
+		panic(fmt.Sprintf("env var %s must be specified!", CronScheduleEnv))
+	}
 	return config{
 		hostPathForBackups: hostPath,
+		cronSchedule:       cronScheule,
 	}
 }
 
@@ -170,14 +179,12 @@ func extractVolumeNamesFromLabels(labels map[string]string) []string {
 	return strings.Split(volumesStr, ",")
 }
 
-func performBackups() error {
+func performBackups(cfg config) error {
 	ctx := context.TODO()
-
-	config := fromEnv()
 
 	cli, err := client.NewClientWithOpts(client.FromEnv)
 	if err != nil {
-		panic(err)
+		return err
 	}
 	// list all containers with backup enabled
 	containers, err := cli.ContainerList(context.Background(), types.ContainerListOptions{
@@ -188,14 +195,22 @@ func performBackups() error {
 		return err
 	}
 
+	log.Printf("found %d containers to backup", len(containers))
+
 	for _, c := range containers {
+
+		if len(extractVolumeNamesFromLabels(c.Labels)) == 0 {
+			log.Printf("container: %s (%s) does not have any volumes specified, skipping backup", c.Image, c.ID)
+			continue
+		}
+
 		log.Printf("Stopping container: %s (%s)\n", c.Image, c.ID)
 		err := cli.ContainerStop(ctx, c.ID, nil)
 		if err != nil {
 			return err
 		}
 
-		err = backupContainerMounts(ctx, config, cli, c)
+		err = backupContainerMounts(ctx, cfg, cli, c)
 		if err != nil {
 			log.Printf("error backing up container: %s", err)
 		}
@@ -210,7 +225,17 @@ func performBackups() error {
 }
 
 func main() {
-	if err := performBackups(); err != nil {
-		log.Fatalf("failed to perform backups: %s", err)
+	config := fromEnv()
+	s := gocron.NewScheduler(time.UTC)
+	log.Printf("running backups with cron schedule: %q", config.cronSchedule)
+	_, err := s.Cron(config.cronSchedule).Do(func() {
+		log.Println("performing backups")
+		if err := performBackups(config); err != nil {
+			log.Printf("error performing backup: %s\n", err)
+		}
+	})
+	if err != nil {
+		log.Fatalf("error starting schedule: %s", err)
 	}
+	s.StartBlocking()
 }
