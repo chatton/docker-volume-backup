@@ -9,8 +9,9 @@ ADD go.sum go.sum
 RUN go mod download
 
 ADD main.go main.go
+ADD cmd cmd
 
 RUN mkdir -p build
-RUN go build -o build cmd
+RUN go build -o build
 
 ENTRYPOINT [ "build/docker-volume-backup" ]
