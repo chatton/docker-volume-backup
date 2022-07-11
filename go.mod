@@ -2,14 +2,15 @@ module docker-volume-backup
 
 go 1.18
 
-require github.com/docker/docker v20.10.17+incompatible
-
 require (
+	github.com/docker/docker v20.10.17+incompatible
+	github.com/spf13/cobra v1.5.0
+
+	github.com/inconshreveable/mousetrap v1.0.0 // indirect
 	github.com/robfig/cron/v3 v3.0.1 // indirect
+	github.com/spf13/pflag v1.0.5 // indirect
 	golang.org/x/sync v0.0.0-20210220032951-036812b2e83c // indirect
-)
 
-require (
 	github.com/Microsoft/go-winio v0.5.2 // indirect
 	github.com/docker/distribution v2.8.1+incompatible // indirect
 	github.com/docker/go-connections v0.4.0 // indirect
