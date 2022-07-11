@@ -11,6 +11,6 @@ RUN go mod download
 ADD main.go main.go
 
 RUN mkdir -p build
-RUN go build -o build
+RUN go build -o build cmd
 
 ENTRYPOINT [ "build/docker-volume-backup" ]
