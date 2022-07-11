@@ -3,7 +3,6 @@ package cmd
 import (
 	"context"
 	"fmt"
-	"os"
 
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/container"
@@ -45,10 +44,6 @@ var createVolumeFromArchive = &cobra.Command{
 
 func cmdCreateVolumeFromArchive(archiveHostPath, volumeName string) error {
 	ctx := context.TODO()
-	if _, err := os.Stat(archiveHostPath); err != nil {
-		return err
-	}
-
 	cli, err := client.NewClientWithOpts(client.FromEnv)
 	if err != nil {
 		return err
