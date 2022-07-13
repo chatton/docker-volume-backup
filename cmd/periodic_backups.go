@@ -178,11 +178,15 @@ func deleteOldBackups(ctx context.Context, cfg config, cli *client.Client, mount
 	return runCommandInMountedContainer(ctx, cfg, cli, mountPoint, cmd)
 }
 
+func getDayMonthYear() string {
+	t := time.Now()
+	return fmt.Sprintf("%d-%d-%d", t.Day(), t.Month(), t.Year())
+}
+
 // performBackup creates a container which mounts the data to be backed up, and creates an archive
 // of the data in the specified hostpath.
 func performBackup(ctx context.Context, cfg config, cli *client.Client, mountPoint types.MountPoint) error {
-	now := strings.ReplaceAll(time.Now().Format(time.RFC3339), ":", "-")
-	nameOfBackedupArchive := fmt.Sprintf("%s-%s.tar.gz", mountPoint.Name, now)
+	nameOfBackedupArchive := fmt.Sprintf("%s-%s.tar.gz", mountPoint.Name, getDayMonthYear())
 	cmd := []string{"tar", "-czvf", fmt.Sprintf("/backups/%s", nameOfBackedupArchive), "/data"}
 	return runCommandInMountedContainer(ctx, cfg, cli, mountPoint, cmd)
 }
