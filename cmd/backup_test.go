@@ -111,7 +111,7 @@ func TestCreateVolume(t *testing.T) {
 
 			resp, err := cli.ContainerExecCreate(ctx, id, types.ExecConfig{
 				WorkingDir:   "/data",
-				Cmd:          []string{"sh", "-c", "find . -path */T/*"},
+				Cmd:          []string{"sh", "-c", "find . -path */T/* | wc -l"},
 				AttachStdout: true,
 			})
 			require.NoError(t, err)
@@ -120,16 +120,18 @@ func TestCreateVolume(t *testing.T) {
 			require.NoError(t, err)
 
 			var (
-				resCh = make(chan string, 1)
+				waitCh = make(chan struct{})
+				resCh  = make(chan string, 1)
 			)
 
 			go func() {
 				defer close(resCh)
+				close(waitCh)
 				b, err := ioutil.ReadAll(attach.Reader)
 				require.NoError(t, err)
 				resCh <- string(b)
 			}()
-
+			<-waitCh
 			select {
 			case <-time.After(10 * time.Second):
 				t.Fatal("failed to read the content in time")
