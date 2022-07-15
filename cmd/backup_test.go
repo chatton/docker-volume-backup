@@ -131,7 +131,7 @@ func TestCreateVolume(t *testing.T) {
 			}()
 
 			select {
-			case <-time.After(3 * time.Second):
+			case <-time.After(10 * time.Second):
 				t.Fatal("failed to read the content in time")
 			case res := <-resCh:
 				// TODO: for now we are just checking that we have 10 files
