@@ -102,5 +102,12 @@ func cmdCreateVolumeFromArchive(archiveHostPath, volumeName string) error {
 		return err
 	}
 
-	return cli.ContainerStart(ctx, body.ID, types.ContainerStartOptions{})
+	err = cli.ContainerStart(ctx, body.ID, types.ContainerStartOptions{})
+	if err != nil {
+		return err
+	}
+
+	// once the container has completed, it should be removed.
+	return waitForContainerToExit(ctx, cli, body)
+
 }

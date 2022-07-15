@@ -160,6 +160,10 @@ func runCommandInMountedContainer(ctx context.Context, cfg config, cli *client.C
 	if err != nil {
 		return err
 	}
+	return waitForContainerToExit(ctx, cli, body)
+}
+
+func waitForContainerToExit(ctx context.Context, cli *client.Client, body container.ContainerCreateCreatedBody) error {
 	resultC, errC := cli.ContainerWait(ctx, body.ID, container.WaitConditionNotRunning)
 	select {
 	case result := <-resultC:
@@ -172,7 +176,7 @@ func runCommandInMountedContainer(ctx context.Context, cfg config, cli *client.C
 		return fmt.Errorf(msg)
 	case err := <-errC:
 		if !errdefs.IsSystem(err) {
-			log.Fatalf("expected a Server Error, got %[1]T: %[1]v", err)
+			return fmt.Errorf("expected a Server Error, got %[1]T: %[1]v", err)
 		}
 	}
 	return nil
