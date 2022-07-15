@@ -111,7 +111,7 @@ func TestCreateVolume(t *testing.T) {
 
 			resp, err := cli.ContainerExecCreate(ctx, id, types.ExecConfig{
 				WorkingDir:   "/data",
-				Cmd:          []string{"sh", "-c", "find . -path */T/* | wc -l"},
+				Cmd:          []string{"sh", "-c", "find . -path */T/*"},
 				AttachStdout: true,
 			})
 			require.NoError(t, err)
