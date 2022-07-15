@@ -102,7 +102,6 @@ func TestCreateVolume(t *testing.T) {
 
 		t.Run("volume has correct contents", func(t *testing.T) {
 			id := createContainer(t, ctx)
-			time.Sleep(10 * time.Second)
 			defer func() {
 				t.Logf("removing container: %s", id)
 				require.NoError(t, cli.ContainerRemove(ctx, id, types.ContainerRemoveOptions{
@@ -179,7 +178,8 @@ func createContainer(t *testing.T, ctx context.Context) string {
 
 // code adapted from https://gist.github.com/jonmorehouse/9060515
 func createTarFile(t *testing.T) string {
-	testDir := t.TempDir()
+	testDir, err := ioutil.TempDir("", "")
+	require.NoError(t, err)
 	tarFileFullPathName := fmt.Sprintf("%s/%s", testDir, tarFileName)
 	// set up the output file
 	file, err := os.Create(tarFileFullPathName)
