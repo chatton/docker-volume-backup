@@ -136,7 +136,7 @@ func TestCreateVolume(t *testing.T) {
 			case res := <-resCh:
 				// TODO: for now we are just checking that we have 10 files
 				// which is what we created in the archive. This can be improved!
-				require.True(t, strings.Contains(res, "10"))
+				require.True(t, strings.Contains(res, "10"), "Contents: %s", res)
 			}
 		})
 	})
