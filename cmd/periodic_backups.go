@@ -70,6 +70,9 @@ func newFilterValue(k, v string) string {
 var (
 	BackupEnabledLabelKey = newLabel("enabled")
 	VolumesLabelKey       = newLabel("volumes")
+	TypeLabelKey          = newLabel("type")
+
+	LabelTypeTask = "task"
 )
 
 func init() {
@@ -119,6 +122,9 @@ func runCommandInMountedContainer(ctx context.Context, cfg config, cli *client.C
 	createConfig := &container.Config{
 		Cmd:   cmd,
 		Image: "busybox:latest",
+		Labels: map[string]string{
+			TypeLabelKey: LabelTypeTask,
+		},
 	}
 
 	hostConfig := &container.HostConfig{

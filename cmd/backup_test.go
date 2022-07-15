@@ -7,9 +7,12 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	"log"
 	"os"
+	"strings"
 	"testing"
 
+	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/filters"
 	"github.com/docker/docker/client"
 	"github.com/stretchr/testify/require"
@@ -27,6 +30,19 @@ func init() {
 	cli, err = client.NewClientWithOpts(client.FromEnv)
 	if err != nil {
 		panic(err)
+	}
+
+	containersToDelete, err := cli.ContainerList(context.TODO(), types.ContainerListOptions{All: true, Filters: filters.NewArgs(filters.KeyValuePair{
+		Key:   "label",
+		Value: fmt.Sprintf("%s=%s", TypeLabelKey, LabelTypeTask),
+	})})
+	
+	for _, c := range containersToDelete {
+		log.Printf("deleting existing container: %s\n", c.ID)
+		err := cli.ContainerRemove(context.TODO(), c.ID, types.ContainerRemoveOptions{Force: true})
+		if err != nil {
+			panic(err)
+		}
 	}
 }
 
@@ -52,7 +68,25 @@ func TestCreateVolume(t *testing.T) {
 		})
 
 		t.Run("backup container is deleted", func(t *testing.T) {
-			// TODO
+			f := filters.NewArgs(filters.KeyValuePair{
+				Key:   "label",
+				Value: fmt.Sprintf("%s=%s", TypeLabelKey, LabelTypeTask),
+			})
+			containers, err := cli.ContainerList(ctx, types.ContainerListOptions{Filters: f, All: true})
+			require.NoError(t, err)
+			found := false
+			for _, c := range containers {
+				for _, n := range c.Names {
+					if strings.HasPrefix(n, "/backup-") {
+						found = true
+					}
+				}
+			}
+			require.False(t, found, fmt.Sprintf("containers: %+v", containers))
+		})
+
+		t.Run("volume has correct contents", func(t *testing.T) {
+
 		})
 	})
 

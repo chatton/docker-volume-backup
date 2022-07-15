@@ -55,7 +55,7 @@ func cmdCreateVolumeFromArchive(archiveHostPath, volumeName string) error {
 	if err != nil {
 		return err
 	}
-	log.Printf("successfully pulled busybox image\n")
+	log.Printf("successfully pulled ubuntu image\n")
 	time.Sleep(time.Second * 5) // TODO: remove this, wait until the image exists instead.
 
 	vol, err := cli.VolumeCreate(ctx, volume.VolumeCreateBody{
@@ -70,6 +70,9 @@ func cmdCreateVolumeFromArchive(archiveHostPath, volumeName string) error {
 		// --strip-components 1 to remove the directory, so that the files of the archive are at the root.
 		Cmd:   []string{"/bin/sh", "-c", "tar -xvzf /archive.tar.gz -C /data --strip-components 1"},
 		Image: "ubuntu",
+		Labels: map[string]string{
+			TypeLabelKey: LabelTypeTask,
+		},
 	}
 
 	hostConfig := &container.HostConfig{
