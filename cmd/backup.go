@@ -49,6 +49,11 @@ func cmdCreateVolumeFromArchive(archiveHostPath, volumeName string) error {
 		return err
 	}
 
+	_, err = cli.ImagePull(ctx, "ubuntu:latest", types.ImagePullOptions{})
+	if err != nil {
+		return err
+	}
+
 	vol, err := cli.VolumeCreate(ctx, volume.VolumeCreateBody{
 		Name: volumeName,
 	})
