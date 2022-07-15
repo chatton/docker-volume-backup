@@ -102,6 +102,7 @@ func TestCreateVolume(t *testing.T) {
 
 		t.Run("volume has correct contents", func(t *testing.T) {
 			id := createContainer(t, ctx)
+			time.Sleep(10 * time.Second)
 			defer func() {
 				t.Logf("removing container: %s", id)
 				require.NoError(t, cli.ContainerRemove(ctx, id, types.ContainerRemoveOptions{
@@ -149,9 +150,8 @@ func createContainer(t *testing.T, ctx context.Context) string {
 	t.Helper()
 	createConfig := &container.Config{
 		WorkingDir: "/data",
-		// --strip-components 1 to remove the directory, so that the files of the archive are at the root.
-		Cmd:   []string{"sleep", "infinity"},
-		Image: "ubuntu",
+		Cmd:        []string{"sleep", "infinity"},
+		Image:      "ubuntu",
 	}
 
 	hostConfig := &container.HostConfig{
@@ -161,7 +161,7 @@ func createContainer(t *testing.T, ctx context.Context) string {
 				Type:     mount.TypeVolume,
 				Source:   volumeName,
 				Target:   "/data",
-				ReadOnly: true,
+				ReadOnly: false,
 			},
 		},
 	}
