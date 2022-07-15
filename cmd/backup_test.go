@@ -3,12 +3,15 @@ package cmd
 import (
 	"archive/tar"
 	"compress/gzip"
+	"context"
 	"fmt"
 	"io"
 	"io/ioutil"
 	"os"
 	"testing"
 
+	"github.com/docker/docker/api/types/filters"
+	"github.com/docker/docker/client"
 	"github.com/stretchr/testify/require"
 )
 
@@ -17,19 +20,39 @@ const (
 	volumeName  = "test-volume"
 )
 
+var cli *client.Client
+
+func init() {
+	var err error
+	cli, err = client.NewClientWithOpts(client.FromEnv)
+	if err != nil {
+		panic(err)
+	}
+}
+
 func TestCreateVolume(t *testing.T) {
 	tarFile := createTarFile(t)
+	ctx := context.TODO()
 
 	t.Run("create volume from tar", func(t *testing.T) {
 		err := cmdCreateVolumeFromArchive(tarFile, volumeName)
 		require.NoError(t, err)
 
 		t.Run("volume created", func(t *testing.T) {
-
+			volumes, err := cli.VolumeList(ctx, filters.Args{})
+			require.NoError(t, err)
+			found := false
+			for _, v := range volumes.Volumes {
+				if v.Name == volumeName {
+					found = true
+					break
+				}
+			}
+			require.True(t, found)
 		})
 
 		t.Run("backup container is deleted", func(t *testing.T) {
-
+			// TODO
 		})
 	})
 
