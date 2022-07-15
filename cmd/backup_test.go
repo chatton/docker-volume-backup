@@ -11,10 +11,15 @@ import (
 	"os"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/docker/docker/api/types"
+	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/api/types/filters"
+	"github.com/docker/docker/api/types/mount"
+	"github.com/docker/docker/api/types/network"
 	"github.com/docker/docker/client"
+	specs "github.com/opencontainers/image-spec/specs-go/v1"
 	"github.com/stretchr/testify/require"
 )
 
@@ -36,12 +41,22 @@ func init() {
 		Key:   "label",
 		Value: fmt.Sprintf("%s=%s", TypeLabelKey, LabelTypeTask),
 	})})
-	
+
 	for _, c := range containersToDelete {
 		log.Printf("deleting existing container: %s\n", c.ID)
 		err := cli.ContainerRemove(context.TODO(), c.ID, types.ContainerRemoveOptions{Force: true})
 		if err != nil {
 			panic(err)
+		}
+	}
+
+	volumes, err := cli.VolumeList(context.TODO(), filters.Args{})
+	for _, v := range volumes.Volumes {
+		if v.Name == volumeName {
+			err = cli.VolumeRemove(context.TODO(), v.Name, true)
+			if err != nil {
+				panic(err)
+			}
 		}
 	}
 }
@@ -86,10 +101,78 @@ func TestCreateVolume(t *testing.T) {
 		})
 
 		t.Run("volume has correct contents", func(t *testing.T) {
+			id := createContainer(t, ctx)
+			defer func() {
+				t.Logf("removing container: %s", id)
+				require.NoError(t, cli.ContainerRemove(ctx, id, types.ContainerRemoveOptions{
+					Force: true,
+				}))
+			}()
 
+			resp, err := cli.ContainerExecCreate(ctx, id, types.ExecConfig{
+				WorkingDir:   "/data",
+				Cmd:          []string{"sh", "-c", "find . -path */T/* | wc -l"},
+				AttachStdout: true,
+			})
+			require.NoError(t, err)
+
+			attach, err := cli.ContainerExecAttach(ctx, resp.ID, types.ExecStartCheck{})
+			require.NoError(t, err)
+
+			var (
+				resCh = make(chan string, 1)
+			)
+
+			go func() {
+				defer close(resCh)
+				b, err := ioutil.ReadAll(attach.Reader)
+				require.NoError(t, err)
+				resCh <- string(b)
+			}()
+
+			select {
+			case <-time.After(3 * time.Second):
+				t.Fatal("failed to read the content in time")
+			case res := <-resCh:
+				// TODO: for now we are just checking that we have 10 files
+				// which is what we created in the archive. This can be improved!
+				require.True(t, strings.Contains(res, "10"))
+			}
 		})
 	})
 
+}
+
+func createContainer(t *testing.T, ctx context.Context) string {
+	t.Helper()
+	createConfig := &container.Config{
+		WorkingDir: "/data",
+		// --strip-components 1 to remove the directory, so that the files of the archive are at the root.
+		Cmd:   []string{"sleep", "infinity"},
+		Image: "ubuntu",
+	}
+
+	hostConfig := &container.HostConfig{
+		Mounts: []mount.Mount{
+			// the directory which contains the data to be backed up
+			{
+				Type:     mount.TypeVolume,
+				Source:   volumeName,
+				Target:   "/data",
+				ReadOnly: true,
+			},
+		},
+	}
+
+	networkConfig := &network.NetworkingConfig{}
+	platform := &specs.Platform{}
+
+	containerName := fmt.Sprintf("backup-%s", RandStringRunes(5))
+	body, err := cli.ContainerCreate(ctx, createConfig, hostConfig, networkConfig, platform, containerName)
+	require.NoError(t, err)
+	err = cli.ContainerStart(ctx, body.ID, types.ContainerStartOptions{})
+	require.NoError(t, err)
+	return body.ID
 }
 
 // code adapted from https://gist.github.com/jonmorehouse/9060515
