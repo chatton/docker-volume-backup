@@ -3,6 +3,8 @@ package cmd
 import (
 	"context"
 	"fmt"
+	"log"
+	"time"
 
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/container"
@@ -53,6 +55,8 @@ func cmdCreateVolumeFromArchive(archiveHostPath, volumeName string) error {
 	if err != nil {
 		return err
 	}
+	log.Printf("successfully pulled busybox image\n")
+	time.Sleep(time.Second * 5) // TODO: remove this, wait until the image exists instead.
 
 	vol, err := cli.VolumeCreate(ctx, volume.VolumeCreateBody{
 		Name: volumeName,
