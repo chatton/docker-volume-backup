@@ -61,7 +61,10 @@ See [this example](./docker-compose.yml)
 
 ```bash
 # make some temporary directories
+# where docker-volume-backup will create the backups.
 export BACKUP_HOST_PATH="$(mktemp -d)"
+
+# required for audiobookshelf
 export AUDIO_BOOKS_DIRECTORY="$(mktemp -d)"
 export PODCASTS_DIRECTORY="$(mktemp -d)"
 
@@ -69,11 +72,16 @@ export PODCASTS_DIRECTORY="$(mktemp -d)"
 docker compose up -d 
 ```
 
-After this, you will notice that every minute (as specified by the `CRON_SCHEDULE` ) the `audiobookshelf` is stopped, backups are created of the two specified
+After this, you will notice that every minute (as specified by the `cron` schedule ) the `audiobookshelf` is stopped, backups are created of the two specified
 volumes, and then it is restarted.
 
 we can see the backups with.
 
 ```bash
 ls ${BACKUP_HOST_PATH}
+```
+
+Stop the containers with
+```bash
+docker-compose down
 ```
