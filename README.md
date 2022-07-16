@@ -11,25 +11,43 @@ store them on in a specified directory on the docker host.
 
 The possible labels which can be applied to containers to configure backups.
 
-| Label                         | Description                                             | Example                    |
-|-------------------------------|---------------------------------------------------------|----------------------------|
+| Label                          | Description                                             | Example                    |
+|--------------------------------|---------------------------------------------------------|----------------------------|
 | `ie.cianhatton.backup.enabled` | Marks the container for volume backups.                 | true                       |
-| `ie.cianhatton.backup.volumes`                     | Comma separated string of volume names to be backed up. | `data_volume,config_volume` |
+| `ie.cianhatton.backup.volumes` | Comma separated string of volume names to be backed up. | `data_volume,config_volume` |
 
-
-Note: depending on how your containers are created, the volumes might be named differently. You must ensure that ``ie.cianhatton.backup.volumes``
+Note: depending on how your containers are created, the volumes might be named differently. You must ensure that `ie.cianhatton.backup.volumes`
 matches the names of the **created** volumes.
 
-## Environment Variables
+## Cobra commands
 
-Environment variables that must be configured for the `docker-volume-backup` container.
+### periodic-backups
 
-| Environment Variable           | Description                                                              | Example                  |
-|--------------------------------|--------------------------------------------------------------------------|--------------------------|
-| `CRON_SCHEDULE` | The cron schedule for when backups should run.                           | `* * * * *`              |
-| `BACKUP_HOST_PATH` | The absolute path on the docker host for where backups should be stored. | `/Users/chatton/backups` |
-| `BACKUP_RETENTION_DAYS` | The number of days backups will be stored before they are deleted.       | `7`                      |
+Periodically backs up container volumes based on a provided cron schedule.
+An archive is created of the volume contents and is copied to the specified host-path.
+Any files in the specified directory older than the specified retention-days will be deleted.
 
+This mode is intended to be deployed alongside other containers and left running.
+
+Usage:
+    docker-volume-backup periodic-backups [flags]
+
+Flags:
+    --cron string          cron usage
+    -h, --help             help for periodic-backups
+    --host-path string     backup host path
+    --retention-days int   retention days
+### create-volume
+
+Creates a docker volume and extracts the contents of the specified archive into it
+
+Usage:
+    docker-volume-backup create-volume [flags]
+
+Flags:
+    --archive string   host path to archive
+    -h, --help             help for create-volume
+    --volume string    name of the volume to create/populate
 
 ## Requirements
 

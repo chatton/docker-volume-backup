@@ -22,11 +22,12 @@ func init() {
 	rootCmd.AddCommand(createVolumeFromArchive)
 }
 
-// periodicBackupsCmd represents the add command
+// createVolumeFromArchive creates a docker volume and pre-populates it with
+// data from a specified archive.
 var createVolumeFromArchive = &cobra.Command{
 	Use:   "create-volume",
-	Short: "",
-	Long:  ``,
+	Short: "create a pre-populated volume.",
+	Long:  "Creates a docker volume and extracts the contents of the specified archive into it",
 	Run: func(cmd *cobra.Command, args []string) {
 
 		archiveHostPath, err := cmd.PersistentFlags().GetString("archive")
