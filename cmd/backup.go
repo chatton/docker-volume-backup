@@ -109,5 +109,4 @@ func cmdCreateVolumeFromArchive(archiveHostPath, volumeName string) error {
 
 	// once the container has completed, it should be removed.
 	return waitForContainerToExit(ctx, cli, body)
-
 }
