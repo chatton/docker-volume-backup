@@ -3,6 +3,8 @@ package cmd
 import (
 	"context"
 	"fmt"
+	"log"
+	"time"
 
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/container"
@@ -49,6 +51,13 @@ func cmdCreateVolumeFromArchive(archiveHostPath, volumeName string) error {
 		return err
 	}
 
+	_, err = cli.ImagePull(ctx, "ubuntu:latest", types.ImagePullOptions{})
+	if err != nil {
+		return err
+	}
+	log.Printf("successfully pulled ubuntu image\n")
+	time.Sleep(time.Second * 5) // TODO: remove this, wait until the image exists instead.
+
 	vol, err := cli.VolumeCreate(ctx, volume.VolumeCreateBody{
 		Name: volumeName,
 	})
@@ -61,6 +70,9 @@ func cmdCreateVolumeFromArchive(archiveHostPath, volumeName string) error {
 		// --strip-components 1 to remove the directory, so that the files of the archive are at the root.
 		Cmd:   []string{"/bin/sh", "-c", "tar -xvzf /archive.tar.gz -C /data --strip-components 1"},
 		Image: "ubuntu",
+		Labels: map[string]string{
+			TypeLabelKey: LabelTypeTask,
+		},
 	}
 
 	hostConfig := &container.HostConfig{
@@ -90,5 +102,11 @@ func cmdCreateVolumeFromArchive(archiveHostPath, volumeName string) error {
 		return err
 	}
 
-	return cli.ContainerStart(ctx, body.ID, types.ContainerStartOptions{})
+	err = cli.ContainerStart(ctx, body.ID, types.ContainerStartOptions{})
+	if err != nil {
+		return err
+	}
+
+	// once the container has completed, it should be removed.
+	return waitForContainerToExit(ctx, cli, body)
 }
