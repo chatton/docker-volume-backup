@@ -23,6 +23,7 @@ matches the names of the **created** volumes.
 
 ### periodic-backups
 
+```
 Periodically backs up container volumes based on a provided cron schedule.
 An archive is created of the volume contents and is copied to the specified host-path.
 Any files in the specified directory older than the specified retention-days will be deleted.
@@ -37,8 +38,11 @@ Flags:
     -h, --help             help for periodic-backups
     --host-path string     backup host path
     --retention-days int   retention days
+```
+
 ### create-volume
 
+```
 Creates a docker volume and extracts the contents of the specified archive into it
 
 Usage:
@@ -46,8 +50,9 @@ Usage:
 
 Flags:
     --archive string   host path to archive
-    -h, --help             help for create-volume
+    -h, --help         help for create-volume
     --volume string    name of the volume to create/populate
+```
 
 ## Requirements
 
