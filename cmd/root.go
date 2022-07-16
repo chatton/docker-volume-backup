@@ -8,9 +8,8 @@ import (
 )
 
 var rootCmd = &cobra.Command{
-	Use:   "demo",
-	Short: "demo app to demonstrate cobra",
-	Long:  `demo app to demonstrate cobra by addition`,
+	Use:   "docker-volume-backup",
+	Short: "cli with docker volume backup utility commands",
 }
 
 func Execute() {

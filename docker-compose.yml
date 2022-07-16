@@ -3,10 +3,14 @@ services:
     container_name: docker-volume-backup
     build:
       context: .
-    environment:
-      - CRON_SCHEDULE=* * * * *
-      - BACKUP_HOST_PATH=${BACKUP_HOST_PATH}
-      - BACKUP_RETENTION_DAYS=7
+    command:
+      - periodic-backups
+      - --cron
+      - "* * * * *"
+      - --host-path
+      - ${BACKUP_HOST_PATH}
+      - --retention-days
+      - "7"
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
 

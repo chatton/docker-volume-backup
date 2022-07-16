@@ -27,11 +27,17 @@ func init() {
 	rootCmd.AddCommand(periodicBackupsCmd)
 }
 
-// periodicBackupsCmd represents the add command
+// periodicBackupsCmd represents the periodic-backup command.
 var periodicBackupsCmd = &cobra.Command{
 	Use:   "periodic-backups",
-	Short: "add values passed to function",
-	Long:  `Demo application to demonstrate cobra featues`,
+	Short: "periodically backs up containers with volumes",
+	Long: `Periodically backs up container volumes based on a provided cron schedule.
+An archive is created of the volume contents and is copied to the specified host-path.
+Any files in the specified directory older than the specified retention-days will be deleted.
+
+This mode is intended to be deployed alongside other containers and left running.
+
+`,
 	Run: func(cmd *cobra.Command, args []string) {
 
 		cron, err := cmd.PersistentFlags().GetString("cron")
