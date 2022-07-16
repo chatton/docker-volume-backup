@@ -19,7 +19,7 @@ jobs:
           go-version: 1.18
       - uses: actions/checkout@v3
       - run: |
-          go mod download
-          go test ./... -v
+          GOFLAGS="-insecure" go mod download
+          GOFLAGS="-insecure" go test ./... -v
         env:
           CI: "true"
