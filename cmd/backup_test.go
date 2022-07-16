@@ -26,7 +26,13 @@ import (
 const (
 	tarFileName = "output.tar.gz"
 	volumeName  = "test-volume"
+	ciEnvKey    = "CI"
 )
+
+func isCI() bool {
+	_, ok := os.LookupEnv(ciEnvKey)
+	return ok
+}
 
 var cli *client.Client
 
@@ -101,6 +107,11 @@ func TestCreateVolume(t *testing.T) {
 		})
 
 		t.Run("volume has correct contents", func(t *testing.T) {
+			if isCI() {
+				t.Skip("skipping test since volumes cannot be mounted in CI")
+				return
+			}
+
 			id := createContainer(t, ctx)
 			defer func() {
 				t.Logf("removing container: %s", id)

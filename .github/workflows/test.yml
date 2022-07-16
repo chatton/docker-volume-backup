@@ -9,6 +9,9 @@ name: Test
 jobs:
   test:
     runs-on: ubuntu-latest
+    container:
+      image: ubuntu
+      options: -v /__w/actions-test-repo/actions-test-repo:/zap/wrk/:rw
     steps:
       - uses: actions/checkout@v3
       - uses: actions/setup-go@v3
@@ -16,3 +19,5 @@ jobs:
           go-version: 1.18
       - uses: actions/checkout@v3
       - run: go test ./... -v
+        env:
+          CI: "true"
