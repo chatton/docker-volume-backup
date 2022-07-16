@@ -18,6 +18,8 @@ jobs:
         with:
           go-version: 1.18
       - uses: actions/checkout@v3
-      - run: go test ./... -v
+      - run: |
+          go mod download
+          go test ./... -v
         env:
           CI: "true"
