@@ -19,7 +19,8 @@ jobs:
           go-version: 1.18
       - uses: actions/checkout@v3
       - run: |
-          go mod download
+          mkdir -p build
+          go build -o build
           go test ./... -v
         env:
           CI: "true"
