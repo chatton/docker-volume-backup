@@ -11,10 +11,10 @@ store them on in a specified directory on the docker host.
 
 The possible labels which can be applied to containers to configure backups.
 
-| Label                          | Description                                             | Example                    |
-|--------------------------------|---------------------------------------------------------|----------------------------|
-| `ie.cianhatton.backup.enabled` | Marks the container for volume backups.                 | true                       |
-| `ie.cianhatton.backup.volumes` | Comma separated string of volume names to be backed up. | `data_volume,config_volume` |
+| Label                          | Description                                                                                       | Example                    |
+|--------------------------------|---------------------------------------------------------------------------------------------------|----------------------------|
+| `ie.cianhatton.backup.enabled` | Marks the container for volume backups.                                                           | true                       |
+| `ie.cianhatton.backup.volumes` | Comma separated string of volume names to be backed up. (if empty, all volumes will be backed up) | `data_volume,config_volume` |
 
 Note: depending on how your containers are created, the volumes might be named differently. You must ensure that `ie.cianhatton.backup.volumes`
 matches the names of the **created** volumes.
@@ -29,6 +29,9 @@ An archive is created of the volume contents and is copied to the specified host
 Any files in the specified directory older than the specified retention-days will be deleted.
 
 This mode is intended to be deployed alongside other containers and left running.
+
+If no volumes are specified under "ie.cianhatton.backup.volumes", all volumes of type
+"volume" will be backed up.
 
 Usage:
     docker-volume-backup periodic-backups [flags]

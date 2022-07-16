@@ -35,6 +35,9 @@ var periodicBackupsCmd = &cobra.Command{
 An archive is created of the volume contents and is copied to the specified host-path.
 Any files in the specified directory older than the specified retention-days will be deleted.
 
+If no volumes are specified under "ie.cianhatton.backup.volumes", all volumes of type
+"volume" will be backed up.
+
 This mode is intended to be deployed alongside other containers and left running.
 
 `,
@@ -210,35 +213,47 @@ func performBackup(ctx context.Context, cfg config, cli *client.Client, mountPoi
 // handleContainerMount backs up the given mounts for the specified container.
 func handleContainerMount(ctx context.Context, cfg config, cli *client.Client, c types.Container) error {
 	oldBackupDeleted := false
-	volumesToBackup := extractVolumeNamesFromLabels(c.Labels)
-	for _, m := range c.Mounts {
-		if contains(volumesToBackup, m.Name) {
-			log.Printf("backing up volume: %s (%s)", m.Name, c.ID)
-			err := performBackup(ctx, cfg, cli, m)
-			if err != nil {
-				return fmt.Errorf("failed backup: %s", err)
-			}
+	volumesToBackup := getVolumeNamesToBackup(c)
 
-			if cfg.retainForDays > 0 && !oldBackupDeleted {
-				log.Printf("removing backups older than %d days\n", cfg.retainForDays)
-				if err := deleteOldBackups(ctx, cfg, cli, m); err != nil {
-					return fmt.Errorf("failed removing old backups: %s", err)
-				}
-				oldBackupDeleted = true
+	for _, m := range c.Mounts {
+		if !contains(volumesToBackup, m.Name) {
+			continue
+		}
+
+		log.Printf("backing up volume: %s (%s)", m.Name, c.ID)
+		err := performBackup(ctx, cfg, cli, m)
+		if err != nil {
+			return fmt.Errorf("failed backup: %s", err)
+		}
+
+		if cfg.retainForDays > 0 && !oldBackupDeleted {
+			log.Printf("removing backups older than %d days\n", cfg.retainForDays)
+			if err := deleteOldBackups(ctx, cfg, cli, m); err != nil {
+				return fmt.Errorf("failed removing old backups: %s", err)
 			}
+			oldBackupDeleted = true
 		}
 	}
 	return nil
 }
 
-// extractVolumeNamesFromLabels extracts a list of volumes to be backed up from
+// getVolumeNamesToBackup extracts a list of volumes to be backed up from
 // the container labels.
-func extractVolumeNamesFromLabels(labels map[string]string) []string {
-	volumesStr, ok := labels[VolumesLabelKey]
-	if !ok {
-		log.Printf("key %s not specifed, no volumes will be backed up.", VolumesLabelKey)
+func getVolumeNamesToBackup(c types.Container) []string {
+	volumesStr, ok := c.Labels[VolumesLabelKey]
+	if ok {
+		return strings.Split(volumesStr, ",")
 	}
-	return strings.Split(volumesStr, ",")
+
+	// backup all volumes if not are specified
+	var volumesToBackup []string
+	for _, m := range c.Mounts {
+		if m.Type == mount.TypeVolume {
+			volumesToBackup = append(volumesToBackup, m.Name)
+		}
+	}
+
+	return volumesToBackup
 }
 
 func performBackups(cfg config) error {
@@ -267,10 +282,6 @@ func performBackups(cfg config) error {
 	time.Sleep(time.Second * 5) // TODO: remove this, wait until the image exists instead.
 
 	for _, c := range containers {
-		if len(extractVolumeNamesFromLabels(c.Labels)) == 0 {
-			log.Printf("container: %s (%s) does not have any volumes specified, skipping backup", c.Image, c.ID)
-			continue
-		}
 
 		log.Printf("Stopping container: %s (%s)\n", c.Image, c.ID)
 		err := cli.ContainerStop(ctx, c.ID, nil)
