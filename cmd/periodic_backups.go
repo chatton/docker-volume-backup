@@ -176,7 +176,7 @@ func waitForContainerToExit(ctx context.Context, cli *client.Client, body contai
 	resultC, errC := cli.ContainerWait(ctx, body.ID, container.WaitConditionNotRunning)
 	select {
 	case result := <-resultC:
-		msg := fmt.Sprintf("container %s existed with code: %d", body.ID, result.StatusCode)
+		msg := fmt.Sprintf("container %s exited with code: %d", body.ID, result.StatusCode)
 		if result.StatusCode == 0 {
 			return cli.ContainerRemove(ctx, body.ID, types.ContainerRemoveOptions{
 				RemoveVolumes: false,

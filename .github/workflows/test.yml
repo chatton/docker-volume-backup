@@ -17,5 +17,3 @@ jobs:
       - uses: actions/checkout@v3
       - run: |
           go test ./... -v
-        env:
-          CI: "true"
