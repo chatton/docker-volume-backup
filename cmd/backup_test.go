@@ -189,7 +189,7 @@ func createContainer(t *testing.T, ctx context.Context) string {
 
 // code adapted from https://gist.github.com/jonmorehouse/9060515
 func createTarFile(t *testing.T) string {
-	testDir, err := ioutil.TempDir("", "")
+	testDir, err := os.MkdirTemp("", "")
 	require.NoError(t, err)
 	tarFileFullPathName := fmt.Sprintf("%s/%s", testDir, tarFileName)
 	// set up the output file

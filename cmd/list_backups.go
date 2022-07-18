@@ -7,6 +7,7 @@ import (
 	"path"
 	"path/filepath"
 	"regexp"
+	"sort"
 	"time"
 
 	"github.com/spf13/cobra"
@@ -75,6 +76,10 @@ func getAllVolumeBackups(hostDir string) ([]backedUpVolume, error) {
 	if err != nil {
 		return nil, err
 	}
+
+	sort.Slice(result, func(i, j int) bool {
+		return result[i].LastModTime.After(result[j].LastModTime)
+	})
 
 	return result, nil
 }
