@@ -10,7 +10,6 @@ import (
 )
 
 func init() {
-
 	restoreBackupsCommand.Flags().String("host-path", "", "backup host path")
 	restoreBackupsCommand.Flags().String("volumes", "", "comma separated list of volumes to restore, default to all found volumes")
 	if err := restoreBackupsCommand.MarkFlagRequired("host-path"); err != nil {
@@ -28,7 +27,14 @@ type backupRestoreArgs struct {
 var restoreBackupsCommand = &cobra.Command{
 	Use:   "restore-backups",
 	Short: "restore existing backups",
-	Long:  "Restore backups from a directory",
+	Long: `Restore backups from a directory.
+
+Specify a directory where backups are located (host-path) and a comma separated
+list of volumes (vol1,vol2,vol3) etc. 
+
+Docker volumes will be created from all of the backups. If there are multiple backups
+of the same volume, the newest will be chosen.
+`,
 	Run: func(cmd *cobra.Command, args []string) {
 		hostDir, err := cmd.Flags().GetString("host-path")
 		if err != nil {

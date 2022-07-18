@@ -57,6 +57,41 @@ Flags:
     --volume string    name of the volume to create/populate
 ```
 
+### list-backups
+
+```
+List backups that exist in the specified host directory
+
+Usage:
+  docker-volume-backup list-backups [flags]
+
+Flags:
+  -h, --help               help for list-backups
+      --host-path string   backup host path
+```
+
+### restore-backups
+
+```
+Restore backups from a directory.
+
+Specify a directory where backups are located (host-path) and a comma separated
+list of volumes (vol1,vol2,vol3) etc.
+
+Docker volumes will be created from all of the backups. If there are multiple backups
+of the same volume, the newest will be chosen.
+
+Usage:
+  docker-volume-backup restore-backups [flags]
+
+Flags:
+  -h, --help               help for restore-backups
+      --host-path string   backup host path
+      --volumes string     comma separated list of volumes to restore, default to all found volumes
+```
+
+
+
 ## Requirements
 
 * The `docker-volume-backup` must have access to the host docker socket.
