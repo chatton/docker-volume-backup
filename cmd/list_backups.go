@@ -78,7 +78,7 @@ func getAllVolumeBackups(hostDir string) ([]backedUpVolume, error) {
 	}
 
 	sort.Slice(result, func(i, j int) bool {
-		return result[i].LastModTime.Before(result[j].LastModTime)
+		return result[i].LastModTime.After(result[j].LastModTime)
 	})
 
 	return result, nil

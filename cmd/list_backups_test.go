@@ -16,9 +16,11 @@ func TestGetAllVolumeBackups(t *testing.T) {
 
 	require.Len(t, vb, 3)
 
-	require.Equal(t, "first-docker-volume-backup_config", vb[0].VolumeName)
-	require.Equal(t, "second-docker-volume-backup_metadata", vb[1].VolumeName)
-	require.Equal(t, "third-docker-volume-backup_extra", vb[2].VolumeName)
+	t.Run("newest backups shown first", func(t *testing.T) {
+		require.Equal(t, "first-docker-volume-backup_config", vb[0].VolumeName)
+		require.Equal(t, "second-docker-volume-backup_metadata", vb[1].VolumeName)
+		require.Equal(t, "third-docker-volume-backup_extra", vb[2].VolumeName)
+	})
 }
 
 func initTestFiles(t *testing.T) string {
