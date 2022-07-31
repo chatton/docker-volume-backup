@@ -15,17 +15,17 @@ import (
 )
 
 func init() {
-	createVolumeFromArchive.PersistentFlags().String("archive", "", "host path to archive")
-	createVolumeFromArchive.PersistentFlags().String("volume", "", "name of the volume to create/populate")
-	rootCmd.AddCommand(createVolumeFromArchive)
+	restoreOrCreateVolumeFromArchive.PersistentFlags().String("archive", "", "host path to archive")
+	restoreOrCreateVolumeFromArchive.PersistentFlags().String("volume", "", "name of the volume to create/populate")
+	rootCmd.AddCommand(restoreOrCreateVolumeFromArchive)
 }
 
-// createVolumeFromArchive creates a docker volume and pre-populates it with
+// restoreOrCreateVolumeFromArchive creates a docker volume and pre-populates it with
 // data from a specified archive.
-var createVolumeFromArchive = &cobra.Command{
-	Use:   "create-volume",
-	Short: "create a pre-populated volume.",
-	Long:  "Creates a docker volume and extracts the contents of the specified archive into it",
+var restoreOrCreateVolumeFromArchive = &cobra.Command{
+	Use:   "restore-volume",
+	Short: "create a pre-populated volume or restore an existing one.",
+	Long:  "Creates a docker volume and extracts the contents of the specified archive into it or restores an existing volume",
 	Run: func(cmd *cobra.Command, args []string) {
 
 		archiveHostPath, err := cmd.PersistentFlags().GetString("archive")
@@ -37,13 +37,13 @@ var createVolumeFromArchive = &cobra.Command{
 		if err != nil {
 			panic(err)
 		}
-		if err := cmdCreateVolumeFromArchive(archiveHostPath, volumeName); err != nil {
+		if err := cmdRestoreVolumeFromArchive(archiveHostPath, volumeName); err != nil {
 			panic(err)
 		}
 	},
 }
 
-func cmdCreateVolumeFromArchive(archiveHostPath, volumeName string) error {
+func cmdRestoreVolumeFromArchive(archiveHostPath, volumeName string) error {
 	ctx := context.TODO()
 	cli, err := client.NewClientWithOpts(client.FromEnv)
 	if err != nil {
@@ -65,7 +65,7 @@ func cmdCreateVolumeFromArchive(archiveHostPath, volumeName string) error {
 	createConfig := &container.Config{
 		WorkingDir: "/data",
 		// --strip-components 1 to remove the directory, so that the files of the archive are at the root.
-		Cmd:   []string{"/bin/sh", "-c", "tar -xvzf /archive.tar.gz -C /data --strip-components 1"},
+		Cmd:   []string{"/bin/sh", "-c", "rm -rf /data/* && tar -xvzf /archive.tar.gz -C /data --strip-components 1"},
 		Image: "ubuntu",
 		Labels: map[string]string{
 			TypeLabelKey: LabelTypeTask,
