@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"sort"
+	"strings"
 	"time"
 
 	"github.com/spf13/cobra"
@@ -73,6 +74,11 @@ func getAllVolumeBackups(hostDir string, volumeNameFilter string, newestOnly boo
 
 		match := rxp.FindAllStringSubmatch(fileName, -1)
 		dockerVolumeName := match[0][1]
+
+		// filter out volumes that don't contain the given volumeNameFilter.
+		if volumeNameFilter != "" && !strings.Contains(dockerVolumeName, volumeNameFilter) {
+			return nil
+		}
 
 		result = append(result, backedUpVolume{
 			VolumeName:       dockerVolumeName,
