@@ -61,7 +61,7 @@ type restoreOutput struct {
 }
 
 func cmdRestoreBackup(args backupRestoreArgs) error {
-	allBackups, err := getAllVolumeBackups(args.hostPath)
+	allBackups, err := getAllVolumeBackups(args.hostPath, "", false)
 	if err != nil {
 		return err
 	}

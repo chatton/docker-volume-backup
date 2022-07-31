@@ -18,6 +18,8 @@ var rxp *regexp.Regexp
 func init() {
 	rxp = regexp.MustCompile("(.*)-\\d+-\\d+-\\d{4}.*.tar.gz$")
 	listBackupsCommand.Flags().String("host-path", "", "backup host path")
+	listBackupsCommand.Flags().String("volume-name-filter", "", "string volume name must contain")
+	listBackupsCommand.Flags().Bool("newest-only", false, "return only 1 backup per volume")
 	if err := listBackupsCommand.MarkFlagRequired("host-path"); err != nil {
 		panic(err)
 	}
@@ -35,8 +37,16 @@ var listBackupsCommand = &cobra.Command{
 		if err != nil {
 			panic(err)
 		}
+		volumeNameFilter, err := cmd.Flags().GetString("volume-name-filter")
+		if err != nil {
+			panic(err)
+		}
+		newestOnly, err := cmd.Flags().GetBool("newest-only")
+		if err != nil {
+			panic(err)
+		}
 
-		if err := cmdListBackups(hostDir); err != nil {
+		if err := cmdListBackups(hostDir, volumeNameFilter, newestOnly); err != nil {
 			panic(err)
 		}
 	},
@@ -50,7 +60,7 @@ type backedUpVolume struct {
 	LastModTime      time.Time `json:"lastModTime"`
 }
 
-func getAllVolumeBackups(hostDir string) ([]backedUpVolume, error) {
+func getAllVolumeBackups(hostDir string, volumeNameFilter string, newestOnly bool) ([]backedUpVolume, error) {
 	var result []backedUpVolume
 	err := filepath.Walk(hostDir, func(filePath string, info os.FileInfo, err error) error {
 		if info.IsDir() {
@@ -81,6 +91,21 @@ func getAllVolumeBackups(hostDir string) ([]backedUpVolume, error) {
 		return result[i].LastModTime.After(result[j].LastModTime)
 	})
 
+	// we only want to see one of each volume. They have already
+	// been sorted by time, so we just take the first of each name.
+	if newestOnly {
+		seenVolumes := map[string]struct{}{}
+		var filteredResult []backedUpVolume
+		for _, b := range result {
+			if _, seenAlready := seenVolumes[b.VolumeName]; seenAlready {
+				continue
+			}
+			filteredResult = append(filteredResult, b)
+			seenVolumes[b.VolumeName] = struct{}{}
+		}
+		return filteredResult, nil
+	}
+
 	return result, nil
 }
 
@@ -102,8 +127,8 @@ func getAllVolumeBackups(hostDir string) ([]backedUpVolume, error) {
   }
 ]
 */
-func cmdListBackups(hostDir string) error {
-	result, err := getAllVolumeBackups(hostDir)
+func cmdListBackups(hostDir string, filter string, newestOnly bool) error {
+	result, err := getAllVolumeBackups(hostDir, filter, newestOnly)
 	if err != nil {
 		return err
 	}
