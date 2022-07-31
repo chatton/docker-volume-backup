@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"sort"
+	"strings"
 	"time"
 
 	"github.com/spf13/cobra"
@@ -17,7 +18,8 @@ var rxp *regexp.Regexp
 
 func init() {
 	rxp = regexp.MustCompile("(.*)-\\d+-\\d+-\\d{4}.*.tar.gz$")
-	listBackupsCommand.Flags().String("host-path", "", "backup host path")
+	listBackupsCommand.Flags().String("host-path", "/backups", "backup host path")
+	listBackupsCommand.Flags().String("volume-name-filter", "", "string volume name must contain")
 	if err := listBackupsCommand.MarkFlagRequired("host-path"); err != nil {
 		panic(err)
 	}
@@ -35,8 +37,12 @@ var listBackupsCommand = &cobra.Command{
 		if err != nil {
 			panic(err)
 		}
+		volumeNameFilter, err := cmd.Flags().GetString("volume-name-filter")
+		if err != nil {
+			panic(err)
+		}
 
-		if err := cmdListBackups(hostDir); err != nil {
+		if err := cmdListBackups(hostDir, volumeNameFilter); err != nil {
 			panic(err)
 		}
 	},
@@ -50,7 +56,7 @@ type backedUpVolume struct {
 	LastModTime      time.Time `json:"lastModTime"`
 }
 
-func getAllVolumeBackups(hostDir string) ([]backedUpVolume, error) {
+func getAllVolumeBackups(hostDir string, volumeNameFilter string) ([]backedUpVolume, error) {
 	var result []backedUpVolume
 	err := filepath.Walk(hostDir, func(filePath string, info os.FileInfo, err error) error {
 		if info.IsDir() {
@@ -63,6 +69,11 @@ func getAllVolumeBackups(hostDir string) ([]backedUpVolume, error) {
 
 		match := rxp.FindAllStringSubmatch(fileName, -1)
 		dockerVolumeName := match[0][1]
+
+		// filter out volumes that don't contain the given volumeNameFilter.
+		if volumeNameFilter != "" && !strings.Contains(dockerVolumeName, volumeNameFilter) {
+			return nil
+		}
 
 		result = append(result, backedUpVolume{
 			VolumeName:       dockerVolumeName,
@@ -102,8 +113,8 @@ func getAllVolumeBackups(hostDir string) ([]backedUpVolume, error) {
   }
 ]
 */
-func cmdListBackups(hostDir string) error {
-	result, err := getAllVolumeBackups(hostDir)
+func cmdListBackups(hostDir string, filter string) error {
+	result, err := getAllVolumeBackups(hostDir, filter)
 	if err != nil {
 		return err
 	}
