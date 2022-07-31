@@ -11,11 +11,7 @@ import (
 func TestGetAllVolumeBackups(t *testing.T) {
 	dir := initTestFiles(t)
 
-<<<<<<< HEAD
 	vb, err := getAllVolumeBackups(dir, "", false)
-=======
-	vb, err := getAllVolumeBackups(dir, "")
->>>>>>> master
 	require.NoError(t, err)
 
 	require.Len(t, vb, 3)
