@@ -72,7 +72,7 @@ func TestCreateVolume(t *testing.T) {
 	ctx := context.TODO()
 
 	t.Run("create volume from tar", func(t *testing.T) {
-		err := cmdCreateVolumeFromArchive(tarFile, volumeName)
+		err := cmdRestoreVolumeFromArchive(tarFile, volumeName)
 		require.NoError(t, err)
 
 		t.Run("volume created", func(t *testing.T) {

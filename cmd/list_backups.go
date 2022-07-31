@@ -24,7 +24,7 @@ func init() {
 	rootCmd.AddCommand(listBackupsCommand)
 }
 
-// createVolumeFromArchive creates a docker volume and pre-populates it with
+// restoreOrCreateVolumeFromArchive creates a docker volume and pre-populates it with
 // data from a specified archive.
 var listBackupsCommand = &cobra.Command{
 	Use:   "list-backups",

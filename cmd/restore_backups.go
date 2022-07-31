@@ -84,7 +84,7 @@ func cmdRestoreBackup(args backupRestoreArgs) error {
 		if alreadyRestored {
 			continue
 		}
-		if err := cmdCreateVolumeFromArchive(b.AbsoluteFilePath, b.VolumeName); err != nil {
+		if err := cmdRestoreVolumeFromArchive(b.AbsoluteFilePath, b.VolumeName); err != nil {
 			return err
 		}
 		volumesBackedUp[b.VolumeName] = struct{}{}
