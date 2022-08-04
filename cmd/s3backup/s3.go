@@ -1,7 +1,8 @@
-package s3
+package s3backup
 
 import (
 	"fmt"
+	"log"
 	"os"
 	"path"
 
@@ -11,6 +12,8 @@ import (
 	"github.com/aws/aws-sdk-go/service/s3"
 	"github.com/aws/aws-sdk-go/service/s3/s3manager"
 )
+
+// https://docs.aws.amazon.com/sdk-for-go/v1/developer-guide/s3-example-basic-bucket-operations.html
 
 type Config struct {
 	AwsAccessKeyId     string
@@ -47,7 +50,7 @@ func newSession() *session.Session {
 	}))
 }
 
-func UploadBackupToS3(file *os.File) error {
+func UploadBackupToS3(volumeName string, file *os.File) error {
 	config := fromEnv()
 	sess := newSession()
 	uploader := s3manager.NewUploader(sess)
@@ -59,11 +62,28 @@ func UploadBackupToS3(file *os.File) error {
 	return err
 }
 
-func ListBackups() ([]*s3.Object, error) {
+func DeleteOtherBackupsForVolume(backupFileKey, volumeName string) error {
+	objects, err := ListBackups(volumeName)
+	if err != nil {
+		return err
+	}
+	for _, obj := range objects {
+		// this is the only one we want to keep.
+		if *obj.Key == backupFileKey {
+			continue
+		}
+		if err := DeleteBackupFromS3(*obj.Key); err != nil {
+			log.Printf("failed deleting backup for key %s: %s\n", *obj.Key, err)
+		}
+	}
+	return nil
+}
+
+func ListBackups(prefix string) ([]*s3.Object, error) {
 	sess := newSession()
 	config := fromEnv()
 	svc := s3.New(sess)
-	resp, err := svc.ListObjectsV2(&s3.ListObjectsV2Input{Bucket: aws.String(config.Bucket)})
+	resp, err := svc.ListObjectsV2(&s3.ListObjectsV2Input{Bucket: aws.String(config.Bucket), Prefix: aws.String(prefix)})
 	if err != nil {
 		return nil, fmt.Errorf("unable to list items in bucket %s: %s", config.Bucket, err.Error())
 	}

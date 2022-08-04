@@ -5,8 +5,12 @@ import (
 	"fmt"
 	"log"
 	"math/rand"
+	"os"
+	"path"
 	"strings"
 	"time"
+
+	"docker-volume-backup/cmd/s3backup"
 
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/container"
@@ -21,9 +25,10 @@ import (
 )
 
 func init() {
-	periodicBackupsCmd.PersistentFlags().String("cron", "", "cron usage")
-	periodicBackupsCmd.PersistentFlags().String("host-path", "", "backup host path")
-	periodicBackupsCmd.PersistentFlags().Int("retention-days", 0, "retention days")
+	periodicBackupsCmd.Flags().String("cron", "", "cron usage")
+	periodicBackupsCmd.Flags().String("host-path", "", "backup host path")
+	periodicBackupsCmd.Flags().String("mode", "", "backup host path")
+	periodicBackupsCmd.Flags().Int("retention-days", 0, "retention days")
 	rootCmd.AddCommand(periodicBackupsCmd)
 }
 
@@ -43,23 +48,30 @@ This mode is intended to be deployed alongside other containers and left running
 `,
 	Run: func(cmd *cobra.Command, args []string) {
 
-		cron, err := cmd.PersistentFlags().GetString("cron")
+		cron, err := cmd.Flags().GetString("cron")
 		if err != nil {
 			panic(err)
 		}
 
-		hostPath, err := cmd.PersistentFlags().GetString("host-path")
+		hostPath, err := cmd.Flags().GetString("host-path")
 		if err != nil {
 			panic(err)
 		}
-		retainForDays, err := cmd.PersistentFlags().GetInt("retention-days")
+		retainForDays, err := cmd.Flags().GetInt("retention-days")
 		if err != nil {
 			panic(err)
 		}
+
+		mode, err := cmd.Flags().GetString("mode")
+		if err != nil {
+			panic(err)
+		}
+
 		cmdPerformBackups(config{
 			hostPathForBackups: hostPath,
 			cronSchedule:       cron,
 			retainForDays:      retainForDays,
+			mode:               mode,
 		})
 	},
 }
@@ -123,6 +135,8 @@ type config struct {
 
 	// retainForDays is the number of days that backups should be stored for.
 	retainForDays int
+
+	mode string
 }
 
 // runCommandInMountedContainer creates a container which mounts the data to be backed up, and
@@ -207,7 +221,27 @@ func getDayMonthYear() string {
 func performBackup(ctx context.Context, cfg config, cli *client.Client, mountPoint types.MountPoint) error {
 	nameOfBackedupArchive := fmt.Sprintf("%s-%s.tar.gz", mountPoint.Name, getDayMonthYear())
 	cmd := []string{"tar", "-czvf", fmt.Sprintf("/backups/%s", nameOfBackedupArchive), "/data"}
-	return runCommandInMountedContainer(ctx, cfg, cli, mountPoint, cmd)
+	err := runCommandInMountedContainer(ctx, cfg, cli, mountPoint, cmd)
+	if err != nil {
+		return err
+	}
+
+	if cfg.mode == "s3" {
+		filePath := fmt.Sprintf("/backups/%s", nameOfBackedupArchive)
+		backupFile, err := os.Open(filePath)
+		if err != nil {
+			return err
+		}
+		log.Printf("backing up to s3")
+		if err := s3backup.UploadBackupToS3(mountPoint.Name, backupFile); err != nil {
+			return fmt.Errorf("failed backing up to s3: %s", err)
+		}
+		if err := s3backup.DeleteOtherBackupsForVolume(path.Base(backupFile.Name()), mountPoint.Name); err != nil {
+			return fmt.Errorf("failed deleting older backups: %s", err)
+		}
+		log.Println("successfully ensured no other backups for the same volume exist in s3")
+	}
+	return nil
 }
 
 // handleContainerMount backs up the given mounts for the specified container.
