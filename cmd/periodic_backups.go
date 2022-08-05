@@ -4,23 +4,20 @@ import (
 	"context"
 	"fmt"
 	"log"
-	"math/rand"
 	"os"
 	"path"
 	"strings"
 	"time"
 
 	"docker-volume-backup/cmd/s3backup"
+	"docker-volume-backup/cmd/util/collectionutil"
+	"docker-volume-backup/cmd/util/dockerutil"
 
 	"github.com/docker/docker/api/types"
-	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/api/types/filters"
 	"github.com/docker/docker/api/types/mount"
-	"github.com/docker/docker/api/types/network"
 	"github.com/docker/docker/client"
-	"github.com/docker/docker/errdefs"
 	"github.com/go-co-op/gocron"
-	specs "github.com/opencontainers/image-spec/specs-go/v1"
 	"github.com/spf13/cobra"
 )
 
@@ -96,34 +93,11 @@ var (
 	LabelTypeTask = "task"
 )
 
-func init() {
-	rand.Seed(time.Now().UnixNano())
-}
-
-var letterRunes = []rune("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ")
-
-func RandStringRunes(n int) string {
-	b := make([]rune, n)
-	for i := range b {
-		b[i] = letterRunes[rand.Intn(len(letterRunes))]
-	}
-	return string(b)
-}
-
 func backupEnabledFilters() filters.Args {
 	return filters.NewArgs(filters.KeyValuePair{
 		Key:   "label",
 		Value: newFilterValue(BackupEnabledLabelKey, "true"),
 	})
-}
-
-func contains[T comparable](elems []T, v T) bool {
-	for _, e := range elems {
-		if v == e {
-			return true
-		}
-	}
-	return false
 }
 
 type config struct {
@@ -139,76 +113,10 @@ type config struct {
 	mode string
 }
 
-// runCommandInMountedContainer creates a container which mounts the data to be backed up, and
-// executes a given command.
-func runCommandInMountedContainer(ctx context.Context, cfg config, cli *client.Client, mountPoint types.MountPoint, cmd []string) error {
-	createConfig := &container.Config{
-		Cmd:   cmd,
-		Image: "busybox:latest",
-		Labels: map[string]string{
-			TypeLabelKey: LabelTypeTask,
-		},
-	}
-
-	hostConfig := &container.HostConfig{
-		Mounts: []mount.Mount{
-			// the directory which contains the data to be backed up
-			{
-				Type:     mount.TypeVolume,
-				Source:   mountPoint.Name,
-				Target:   "/data",
-				ReadOnly: false,
-			},
-			// hostpath where the backups will be stored
-			{
-				Type:     mount.TypeBind,
-				Source:   cfg.hostPathForBackups,
-				Target:   "/backups",
-				ReadOnly: false,
-			},
-		},
-	}
-
-	networkConfig := &network.NetworkingConfig{}
-	platform := &specs.Platform{}
-
-	containerName := fmt.Sprintf("backup-%s-%s", mountPoint.Name, RandStringRunes(5))
-	body, err := cli.ContainerCreate(ctx, createConfig, hostConfig, networkConfig, platform, containerName)
-
-	if err != nil {
-		return err
-	}
-
-	err = cli.ContainerStart(ctx, body.ID, types.ContainerStartOptions{})
-	if err != nil {
-		return err
-	}
-	return waitForContainerToExit(ctx, cli, body)
-}
-
-func waitForContainerToExit(ctx context.Context, cli *client.Client, body container.ContainerCreateCreatedBody) error {
-	resultC, errC := cli.ContainerWait(ctx, body.ID, container.WaitConditionNotRunning)
-	select {
-	case result := <-resultC:
-		msg := fmt.Sprintf("container %s exited with code: %d", body.ID, result.StatusCode)
-		if result.StatusCode == 0 {
-			return cli.ContainerRemove(ctx, body.ID, types.ContainerRemoveOptions{
-				RemoveVolumes: false,
-			})
-		}
-		return fmt.Errorf(msg)
-	case err := <-errC:
-		if !errdefs.IsSystem(err) {
-			return fmt.Errorf("expected a Server Error, got %[1]T: %[1]v", err)
-		}
-	}
-	return nil
-}
-
 // deleteOldBackups deletes backups that are older than a certain age.
 func deleteOldBackups(ctx context.Context, cfg config, cli *client.Client, mountPoint types.MountPoint) error {
 	cmd := []string{"find", "backups", "-mtime", fmt.Sprintf("+%d", cfg.retainForDays), "-delete"}
-	return runCommandInMountedContainer(ctx, cfg, cli, mountPoint, cmd)
+	return dockerutil.RunCommandInMountedContainer(ctx, cfg.hostPathForBackups, cli, mountPoint, cmd)
 }
 
 func getDayMonthYear() string {
@@ -221,7 +129,7 @@ func getDayMonthYear() string {
 func performBackup(ctx context.Context, cfg config, cli *client.Client, mountPoint types.MountPoint) error {
 	nameOfBackedupArchive := fmt.Sprintf("%s-%s.tar.gz", mountPoint.Name, getDayMonthYear())
 	cmd := []string{"tar", "-czvf", fmt.Sprintf("/backups/%s", nameOfBackedupArchive), "/data"}
-	err := runCommandInMountedContainer(ctx, cfg, cli, mountPoint, cmd)
+	err := dockerutil.RunCommandInMountedContainer(ctx, cfg.hostPathForBackups, cli, mountPoint, cmd)
 	if err != nil {
 		return err
 	}
@@ -250,7 +158,7 @@ func handleContainerMount(ctx context.Context, cfg config, cli *client.Client, c
 	volumesToBackup := getVolumeNamesToBackup(c)
 
 	for _, m := range c.Mounts {
-		if !contains(volumesToBackup, m.Name) {
+		if !collectionutil.Contains(volumesToBackup, m.Name) {
 			continue
 		}
 

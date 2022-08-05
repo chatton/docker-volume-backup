@@ -6,6 +6,8 @@ import (
 	"strings"
 	"time"
 
+	"docker-volume-backup/cmd/util/collectionutil"
+
 	"github.com/spf13/cobra"
 )
 
@@ -71,7 +73,7 @@ func cmdRestoreBackup(args backupRestoreArgs) error {
 	if len(args.volumes) > 0 && args.volumes[0] != "" {
 		var volumesToBackup []backedUpVolume
 		for _, b := range allBackups {
-			if contains(args.volumes, b.VolumeName) {
+			if collectionutil.Contains(args.volumes, b.VolumeName) {
 				volumesToBackup = append(volumesToBackup, b)
 			}
 		}
