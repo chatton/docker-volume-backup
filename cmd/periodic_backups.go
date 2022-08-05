@@ -35,7 +35,7 @@ Any files in the specified directory older than the specified retention-days wil
 If no volumes are specified under "ie.cianhatton.backup.volumes", all volumes of type
 "volume" will be backed up.
 
-This modes is intended to be deployed alongside other containers and left running.
+This mode is intended to be deployed alongside other containers and left running.
 
 `,
 	Run: func(cmd *cobra.Command, args []string) {
