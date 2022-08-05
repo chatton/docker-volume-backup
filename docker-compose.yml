@@ -11,8 +11,17 @@ services:
       - ${BACKUP_HOST_PATH}
       - --retention-days
       - "7"
+      - --mode
+      - "s3"
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
+      - ${BACKUP_HOST_PATH}:/backups
+    environment:
+      AWS_ACCESS_KEY_ID: "Qrzl4TgFeGpIOEORbjIv"
+      AWS_SECRET_ACCESS_KEY: "INOBdORoOawOCHSLseek8x97sWZcQ9SgDU6pS1eL"
+      AWS_DEFAULT_REGION: "us-east-1"
+      AWS_BUCKET: "backups"
+      AWS_ENDPOINT: "l8x8.ie11.idrivee2-6.com"
 
   audiobookshelf:
     labels:
