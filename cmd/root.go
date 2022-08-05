@@ -8,7 +8,7 @@ import (
 )
 
 //func init() {
-//	rootCmd.PersistentFlags().String("mode", "file", "specify either file or s3")
+//	rootCmd.PersistentFlags().String("modes", "file", "specify either file or s3")
 //}
 
 var rootCmd = &cobra.Command{

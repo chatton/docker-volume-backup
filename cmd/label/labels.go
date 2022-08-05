@@ -1,6 +1,10 @@
 package label
 
-import "fmt"
+import (
+	"fmt"
+
+	"github.com/docker/docker/api/types/filters"
+)
 
 func newLabel(s string) string {
 	return fmt.Sprintf("%s.%s", DockerLabelPrefix, s)
@@ -26,4 +30,11 @@ func Task() map[string]string {
 	return map[string]string{
 		TypeLabelKey: LabelTypeTask,
 	}
+}
+
+func BackupEnabledFilters() filters.Args {
+	return filters.NewArgs(filters.KeyValuePair{
+		Key:   "label",
+		Value: newFilterValue(BackupEnabledLabelKey, "true"),
+	})
 }
