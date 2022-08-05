@@ -13,6 +13,8 @@ import (
 	"testing"
 	"time"
 
+	"docker-volume-backup/cmd/util/randutil"
+
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/api/types/filters"
@@ -179,7 +181,7 @@ func createContainer(t *testing.T, ctx context.Context) string {
 	networkConfig := &network.NetworkingConfig{}
 	platform := &specs.Platform{}
 
-	containerName := fmt.Sprintf("backup-%s", RandStringRunes(5))
+	containerName := fmt.Sprintf("backup-%s", randutil.StringRunes(5))
 	body, err := cli.ContainerCreate(ctx, createConfig, hostConfig, networkConfig, platform, containerName)
 	require.NoError(t, err)
 	err = cli.ContainerStart(ctx, body.ID, types.ContainerStartOptions{})

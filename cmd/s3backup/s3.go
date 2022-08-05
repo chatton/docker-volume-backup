@@ -1,19 +1,66 @@
 package s3backup
 
 import (
+	"context"
 	"fmt"
 	"log"
 	"os"
 	"path"
+
+	"docker-volume-backup/cmd/util/dateutil"
+	"docker-volume-backup/cmd/util/dockerutil"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/credentials"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/s3"
 	"github.com/aws/aws-sdk-go/service/s3/s3manager"
+	"github.com/docker/docker/api/types"
+	"github.com/docker/docker/client"
 )
 
 // https://docs.aws.amazon.com/sdk-for-go/v1/developer-guide/s3-example-basic-bucket-operations.html
+
+type Mode struct {
+	hostPathForBackups string
+	config             Config
+}
+
+func NewMode(hostPath string) *Mode {
+	return &Mode{
+		hostPathForBackups: hostPath,
+		config:             fromEnv(),
+	}
+}
+
+func (s *Mode) CrateBackup(ctx context.Context, cli *client.Client, mountPoint types.MountPoint) error {
+	nameOfBackedupArchive := fmt.Sprintf("%s-%s.tar.gz", mountPoint.Name, dateutil.GetDayMonthYear())
+	filePath := fmt.Sprintf("/backups/.s3tmp/%s", nameOfBackedupArchive)
+	cmd := []string{"tar", "-czvf", filePath, "/data"}
+	if err := dockerutil.RunCommandInMountedContainer(ctx, s.hostPathForBackups, cli, mountPoint, cmd); err != nil {
+		return fmt.Errorf("failed running command in container: %s", err)
+	}
+
+	backupFile, err := os.Open(filePath)
+	if err != nil {
+		return err
+	}
+	log.Printf("backing up to s3")
+	if err := UploadBackupToS3(mountPoint.Name, backupFile); err != nil {
+		return fmt.Errorf("failed backing up to s3: %s", err)
+	}
+	if err := DeleteOtherBackupsForVolume(path.Base(backupFile.Name()), mountPoint.Name); err != nil {
+		return fmt.Errorf("failed deleting older backups: %s", err)
+	}
+
+	// remove the archive after it was successfully uploaded to s3.
+	if err := os.Remove(filePath); err != nil {
+		return fmt.Errorf("failed to remove temprory archive: %s", err)
+	}
+
+	log.Println("successfully ensured no other backups for the same volume exist in s3")
+	return nil
+}
 
 type Config struct {
 	AwsAccessKeyId     string

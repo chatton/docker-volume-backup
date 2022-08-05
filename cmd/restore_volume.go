@@ -4,6 +4,9 @@ import (
 	"context"
 	"fmt"
 
+	"docker-volume-backup/cmd/util/dockerutil"
+	"docker-volume-backup/cmd/util/randutil"
+
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/api/types/mount"
@@ -93,7 +96,7 @@ func cmdRestoreVolumeFromArchive(archiveHostPath, volumeName string) error {
 	networkConfig := &network.NetworkingConfig{}
 	platform := &specs.Platform{}
 
-	containerName := fmt.Sprintf("backup-%s", RandStringRunes(5))
+	containerName := fmt.Sprintf("backup-%s", randutil.StringRunes(5))
 	body, err := cli.ContainerCreate(ctx, createConfig, hostConfig, networkConfig, platform, containerName)
 	if err != nil {
 		return err
@@ -105,5 +108,5 @@ func cmdRestoreVolumeFromArchive(archiveHostPath, volumeName string) error {
 	}
 
 	// once the container has completed, it should be removed.
-	return waitForContainerToExit(ctx, cli, body)
+	return dockerutil.WaitForContainerToExit(ctx, cli, body)
 }

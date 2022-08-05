@@ -7,10 +7,6 @@ import (
 	"github.com/spf13/cobra"
 )
 
-//func init() {
-//	rootCmd.PersistentFlags().String("mode", "file", "specify either file or s3")
-//}
-
 var rootCmd = &cobra.Command{
 	Use:   "docker-volume-backup",
 	Short: "cli with docker volume backup utility commands",

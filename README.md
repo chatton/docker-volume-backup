@@ -106,7 +106,7 @@ See [this example](./docker-compose.yml)
 # make some temporary directories
 # where docker-volume-backup will create the backups.
 export BACKUP_HOST_PATH="$(mktemp -d)"
-
+mkdir -p "${BACKUP_HOST_PATH}/.s3tmp"
 # required for audiobookshelf
 export AUDIO_BOOKS_DIRECTORY="$(mktemp -d)"
 export PODCASTS_DIRECTORY="$(mktemp -d)"
