@@ -8,13 +8,13 @@ import (
 )
 
 type Config struct {
-	// hostPathForBackups is the absolute path that where backups will be stored.
+	// HostPathForBackups is the absolute path that where backups will be stored.
 	HostPathForBackups string
 
-	// cronSchedule is the cron schedule that backups will run on.
+	// CronSchedule is the cron schedule that backups will run on.
 	CronSchedule string
 
-	// retainForDays is the number of days that backups should be stored for.
+	// RetainForDays is the number of days that backups should be stored for.
 	RetainForDays int
 
 	Mode string
