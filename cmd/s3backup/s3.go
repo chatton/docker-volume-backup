@@ -3,9 +3,11 @@ package s3backup
 import (
 	"context"
 	"fmt"
+	"io"
 	"log"
 	"os"
 	"path"
+	"sort"
 
 	"docker-volume-backup/cmd/util/dateutil"
 	"docker-volume-backup/cmd/util/dockerutil"
@@ -46,7 +48,7 @@ func (s *Mode) CrateBackup(ctx context.Context, cli *client.Client, mountPoint t
 		return err
 	}
 	log.Printf("backing up to s3")
-	if err := UploadBackupToS3(mountPoint.Name, backupFile); err != nil {
+	if err := UploadBackupToS3(backupFile); err != nil {
 		return fmt.Errorf("failed backing up to s3: %s", err)
 	}
 	if err := DeleteOtherBackupsForVolume(path.Base(backupFile.Name()), mountPoint.Name); err != nil {
@@ -97,7 +99,7 @@ func newSession() *session.Session {
 	}))
 }
 
-func UploadBackupToS3(volumeName string, file *os.File) error {
+func UploadBackupToS3(file *os.File) error {
 	config := fromEnv()
 	sess := newSession()
 	uploader := s3manager.NewUploader(sess)
@@ -143,4 +145,31 @@ func DeleteBackupFromS3(key string) error {
 	svc := s3.New(sess)
 	_, err := svc.DeleteObject(&s3.DeleteObjectInput{Bucket: aws.String(config.Bucket), Key: aws.String(key)})
 	return err
+}
+
+func DownloadFromS3(key string, writer io.WriterAt) error {
+	config := fromEnv()
+	downloader := s3manager.NewDownloader(newSession())
+
+	_, err := downloader.Download(writer,
+		&s3.GetObjectInput{
+			Bucket: aws.String(config.Bucket),
+			Key:    aws.String(key),
+		})
+
+	return err
+}
+
+func FindMostRecentBackupForVolume(volumeName string) (*s3.Object, error) {
+	backupsForVolume, err := ListBackups(volumeName)
+	if err != nil {
+		return nil, err
+	}
+	if len(backupsForVolume) == 0 {
+		return nil, fmt.Errorf("no backups found for volume %s", volumeName)
+	}
+	sort.SliceStable(backupsForVolume, func(i, j int) bool {
+		return backupsForVolume[i].LastModified.Before(*backupsForVolume[j].LastModified)
+	})
+	return backupsForVolume[0], nil
 }
