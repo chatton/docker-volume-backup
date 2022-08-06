@@ -3,9 +3,11 @@ package s3backup
 import (
 	"context"
 	"fmt"
+	"io"
 	"log"
 	"os"
 	"path"
+	"sort"
 
 	"docker-volume-backup/cmd/util/dateutil"
 	"docker-volume-backup/cmd/util/dockerutil"
@@ -145,41 +147,29 @@ func DeleteBackupFromS3(key string) error {
 	return err
 }
 
-func DownloadFromS3(key string) (*os.File, error) {
+func DownloadFromS3(key string, writer io.WriterAt) error {
 	config := fromEnv()
-	//tmpDir, err := ioutil.TempDir("", "")
-	//if err != nil {
-	//	return nil, err
-	//}
-	//tmpFile, err := ioutil.TempFile(tmpDir, "")
-	//if err != nil {
-	//	return nil, err
-	//}
-	fileName := "/tmp/" + key
-	f, err := os.Create(fileName)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create file %q, %v", fileName, err)
-	}
-
 	downloader := s3manager.NewDownloader(newSession())
 
-	_, err = downloader.Download(f,
+	_, err := downloader.Download(writer,
 		&s3.GetObjectInput{
 			Bucket: aws.String(config.Bucket),
 			Key:    aws.String(key),
 		})
 
+	return err
+}
+
+func FindMostRecentBackupForVolume(volumeName string) (*s3.Object, error) {
+	backupsForVolume, err := ListBackups(volumeName)
 	if err != nil {
 		return nil, err
 	}
-
-	//itemBytes, err := ioutil.ReadAll(f)
-	//if err != nil {
-	//	return nil, err
-	//}
-
-	//if err := os.Remove(f.Name()); err != nil {
-	//	return nil, err
-	//}
-	return f, nil
+	if len(backupsForVolume) == 0 {
+		return nil, fmt.Errorf("no backups found for volume %s", volumeName)
+	}
+	sort.SliceStable(backupsForVolume, func(i, j int) bool {
+		return backupsForVolume[i].LastModified.Before(*backupsForVolume[j].LastModified)
+	})
+	return backupsForVolume[0], nil
 }

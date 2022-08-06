@@ -3,6 +3,7 @@ package cmd
 import (
 	"context"
 	"fmt"
+	"os"
 
 	"docker-volume-backup/cmd/s3backup"
 	"docker-volume-backup/cmd/util/dockerutil"
@@ -67,11 +68,27 @@ var restoreOrCreateVolume = &cobra.Command{
 		}
 
 		if useS3 || s3Key != "" {
-			f, err := s3backup.DownloadFromS3(s3Key)
+			// no s3key specified, so we must try and find the newest backup.
+			if s3Key == "" {
+				obj, err := s3backup.FindMostRecentBackupForVolume(volumeName)
+				if err != nil {
+					panic(err)
+				}
+				s3Key = *obj.Key
+			}
+
+			fileName := fmt.Sprintf("/tmp/%s", s3Key)
+			f, err := os.Create(fileName)
 			if err != nil {
 				panic(err)
 			}
+			defer func() {
+				_ = os.Remove(f.Name())
+			}()
 
+			if err := s3backup.DownloadFromS3(s3Key, f); err != nil {
+				panic(err)
+			}
 			archiveHostPath = f.Name()
 		}
 
