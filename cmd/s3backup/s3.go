@@ -46,7 +46,7 @@ func (s *Mode) CrateBackup(ctx context.Context, cli *client.Client, mountPoint t
 		return err
 	}
 	log.Printf("backing up to s3")
-	if err := UploadBackupToS3(mountPoint.Name, backupFile); err != nil {
+	if err := UploadBackupToS3(backupFile); err != nil {
 		return fmt.Errorf("failed backing up to s3: %s", err)
 	}
 	if err := DeleteOtherBackupsForVolume(path.Base(backupFile.Name()), mountPoint.Name); err != nil {
@@ -97,7 +97,7 @@ func newSession() *session.Session {
 	}))
 }
 
-func UploadBackupToS3(volumeName string, file *os.File) error {
+func UploadBackupToS3(file *os.File) error {
 	config := fromEnv()
 	sess := newSession()
 	uploader := s3manager.NewUploader(sess)
@@ -143,4 +143,43 @@ func DeleteBackupFromS3(key string) error {
 	svc := s3.New(sess)
 	_, err := svc.DeleteObject(&s3.DeleteObjectInput{Bucket: aws.String(config.Bucket), Key: aws.String(key)})
 	return err
+}
+
+func DownloadFromS3(key string) (*os.File, error) {
+	config := fromEnv()
+	//tmpDir, err := ioutil.TempDir("", "")
+	//if err != nil {
+	//	return nil, err
+	//}
+	//tmpFile, err := ioutil.TempFile(tmpDir, "")
+	//if err != nil {
+	//	return nil, err
+	//}
+	fileName := "/tmp/" + key
+	f, err := os.Create(fileName)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create file %q, %v", fileName, err)
+	}
+
+	downloader := s3manager.NewDownloader(newSession())
+
+	_, err = downloader.Download(f,
+		&s3.GetObjectInput{
+			Bucket: aws.String(config.Bucket),
+			Key:    aws.String(key),
+		})
+
+	if err != nil {
+		return nil, err
+	}
+
+	//itemBytes, err := ioutil.ReadAll(f)
+	//if err != nil {
+	//	return nil, err
+	//}
+
+	//if err := os.Remove(f.Name()); err != nil {
+	//	return nil, err
+	//}
+	return f, nil
 }

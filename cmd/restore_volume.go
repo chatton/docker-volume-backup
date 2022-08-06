@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 
+	"docker-volume-backup/cmd/s3backup"
 	"docker-volume-backup/cmd/util/dockerutil"
 	"docker-volume-backup/cmd/util/randutil"
 
@@ -17,29 +18,63 @@ import (
 	"github.com/spf13/cobra"
 )
 
+const (
+	volumeFlag  = "volume"
+	s3Mode      = "s3"
+	s3KeyFlag   = "s3key"
+	archiveFlag = "archive"
+)
+
 func init() {
-	restoreOrCreateVolumeFromArchive.PersistentFlags().String("archive", "", "host path to archive")
-	restoreOrCreateVolumeFromArchive.PersistentFlags().String("volume", "", "name of the volume to create/populate")
-	rootCmd.AddCommand(restoreOrCreateVolumeFromArchive)
+	restoreOrCreateVolume.Flags().String(archiveFlag, "", "host path to archive")
+	restoreOrCreateVolume.Flags().String(s3KeyFlag, "", "specific s3Key to restore")
+	restoreOrCreateVolume.Flags().Bool(s3Mode, false, "look in s3 for backup")
+	restoreOrCreateVolume.Flags().String(volumeFlag, "", "name of the volume to create/populate")
+
+	if err := restoreOrCreateVolume.MarkFlagRequired(volumeFlag); err != nil {
+		panic(err)
+	}
+	restoreOrCreateVolume.MarkFlagsMutuallyExclusive(s3KeyFlag, archiveFlag)
+	rootCmd.AddCommand(restoreOrCreateVolume)
 }
 
-// restoreOrCreateVolumeFromArchive creates a docker volume and pre-populates it with
+// restoreOrCreateVolume creates a docker volume and pre-populates it with
 // data from a specified archive.
-var restoreOrCreateVolumeFromArchive = &cobra.Command{
+var restoreOrCreateVolume = &cobra.Command{
 	Use:   "restore-volume",
 	Short: "create a pre-populated volume or restore an existing one.",
 	Long:  "Creates a docker volume and extracts the contents of the specified archive into it or restores an existing volume",
 	Run: func(cmd *cobra.Command, args []string) {
 
-		archiveHostPath, err := cmd.PersistentFlags().GetString("archive")
+		archiveHostPath, err := cmd.Flags().GetString(archiveFlag)
 		if err != nil {
 			panic(err)
 		}
 
-		volumeName, err := cmd.PersistentFlags().GetString("volume")
+		s3Key, err := cmd.Flags().GetString(s3KeyFlag)
 		if err != nil {
 			panic(err)
 		}
+
+		volumeName, err := cmd.Flags().GetString(volumeFlag)
+		if err != nil {
+			panic(err)
+		}
+
+		useS3, err := cmd.Flags().GetBool(s3Mode)
+		if err != nil {
+			panic(err)
+		}
+
+		if useS3 || s3Key != "" {
+			f, err := s3backup.DownloadFromS3(s3Key)
+			if err != nil {
+				panic(err)
+			}
+
+			archiveHostPath = f.Name()
+		}
+
 		if err := cmdRestoreVolumeFromArchive(archiveHostPath, volumeName); err != nil {
 			panic(err)
 		}
