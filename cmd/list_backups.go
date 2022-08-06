@@ -21,9 +21,8 @@ func init() {
 	listBackupsCommand.Flags().String("host-path", "", "backup host path")
 	listBackupsCommand.Flags().String("volume-name-filter", "", "string volume name must contain")
 	listBackupsCommand.Flags().Bool("newest-only", false, "return only 1 backup per volume")
-	if err := listBackupsCommand.MarkFlagRequired("host-path"); err != nil {
-		panic(err)
-	}
+	listBackupsCommand.Flags().Bool("s3", false, "list s3 backups")
+	listBackupsCommand.MarkFlagsMutuallyExclusive("s3", "host-path")
 	rootCmd.AddCommand(listBackupsCommand)
 }
 
@@ -46,6 +45,18 @@ var listBackupsCommand = &cobra.Command{
 		if err != nil {
 			panic(err)
 		}
+
+		//s3Opt, err := cmd.Flags().GetBool("s3")
+		//if err != nil {
+		//	panic(err)
+		//}
+		//
+		////if s3Opt {
+		////	s3Opts, err := s3backup.ListBackups(volumeNameFilter)
+		////	if err != nil {
+		////		panic(err)
+		////	}
+		////}
 
 		if err := cmdListBackups(hostDir, volumeNameFilter, newestOnly); err != nil {
 			panic(err)
