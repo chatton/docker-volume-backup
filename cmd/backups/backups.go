@@ -18,11 +18,8 @@ import (
 	"github.com/docker/docker/client"
 )
 
-func PerformBackups(key string, backups ...periodic.Backup) error {
-	if len(backups) == 0 {
-		return nil
-	}
-	backupModes := extractBackupModes(backups)
+func PerformBackups(cfg periodic.CronConfiguration) error {
+	backupModes := extractBackupModes(cfg.Backups)
 
 	ctx := context.TODO()
 
@@ -34,7 +31,7 @@ func PerformBackups(key string, backups ...periodic.Backup) error {
 	// with this backup type.
 	// e.g. ie.cianhatton.backup.key: nightly
 	containers, err := cli.ContainerList(context.Background(), types.ContainerListOptions{
-		Filters: label.BackupScheduleFilters(key),
+		Filters: label.BackupScheduleFilters(cfg.ScheduleKey),
 		All:     true,
 	})
 	if err != nil {

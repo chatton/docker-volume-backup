@@ -58,19 +58,6 @@ var (
 	LabelTypeTask = "task"
 )
 
-type config struct {
-	// hostPathForBackups is the absolute path that where backups will be stored.
-	hostPathForBackups string
-
-	// cronSchedule is the cron schedule that backups will run on.
-	cronSchedule string
-
-	// retainForDays is the number of days that backups should be stored for.
-	retainForDays int
-
-	modes string
-}
-
 // getVolumeNamesToBackup extracts a list of volumes to be backed up from
 // the container labels.
 func getVolumeNamesToBackup(c types.Container) []string {
@@ -93,10 +80,14 @@ func getVolumeNamesToBackup(c types.Container) []string {
 func cmdPerformBackups(cfg periodic.Config) {
 	s := gocron.NewScheduler(time.UTC)
 	for _, configuration := range cfg.PeriodicBackups {
-		log.Printf("running backups with cron schedule: %q", configuration.Schedule)
+		log.Printf("running %s [%s] backups with cron schedule: %q", configuration.Name, configuration.ScheduleKey, configuration.Schedule)
 		_, err := s.Cron(configuration.Schedule).Do(func() {
-			log.Printf("performing %s backups\n", configuration.Name)
-			if err := backups.PerformBackups(configuration.ScheduleKey, configuration.Backups...); err != nil {
+			log.Printf("performing %s [%s] backups\n", configuration.Name, configuration.ScheduleKey)
+			if len(configuration.Backups) == 0 {
+				log.Printf("skipping backup as no backups are specified\n")
+				return
+			}
+			if err := backups.PerformBackups(configuration); err != nil {
 				log.Printf("failed performing backups: %s", err)
 			}
 		})
