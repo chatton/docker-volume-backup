@@ -116,6 +116,7 @@ func extractBackupModes(bks []periodic.Backup) []BackupMode {
 			backupModes = append(backupModes, filebackup.NewMode(item.FilesystemOptions.Hostpath))
 		case "s3":
 			backupModes = append(backupModes, s3backup.NewMode(item.S3Options.Hostpath, s3backup.Config{
+				// TODO: this is not being used yet, it's still using env vars
 				AwsAccessKeyId:     item.S3Options.AwsAccessKeyID,
 				AwsSecretAccessKey: item.S3Options.AwsSecretAccessKey,
 				AwsRegion:          item.S3Options.AwsDefaultRegion,

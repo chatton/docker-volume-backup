@@ -48,10 +48,10 @@ func (s *Mode) CreateBackup(ctx context.Context, cli *client.Client, mountPoint 
 		return err
 	}
 	log.Printf("backing up to s3")
-	if err := s.UploadBackupToS3(backupFile); err != nil {
+	if err := UploadBackupToS3(backupFile); err != nil {
 		return fmt.Errorf("failed backing up to s3: %s", err)
 	}
-	if err := s.DeleteOtherBackupsForVolume(path.Base(backupFile.Name()), mountPoint.Name); err != nil {
+	if err := DeleteOtherBackupsForVolume(path.Base(backupFile.Name()), mountPoint.Name); err != nil {
 		return fmt.Errorf("failed deleting older backups: %s", err)
 	}
 
@@ -87,8 +87,8 @@ func fromEnv() Config {
 	}
 }
 
-func (m *Mode) newSession() *session.Session {
-	config := m.config
+func newSession() *session.Session {
+	config := fromEnv()
 	return session.Must(session.NewSession(&aws.Config{
 		Credentials: credentials.NewStaticCredentialsFromCreds(credentials.Value{
 			AccessKeyID:     config.AwsAccessKeyId,
@@ -99,9 +99,9 @@ func (m *Mode) newSession() *session.Session {
 	}))
 }
 
-func (m *Mode) UploadBackupToS3(file *os.File) error {
-	config := m.config
-	sess := m.newSession()
+func UploadBackupToS3(file *os.File) error {
+	config := fromEnv()
+	sess := newSession()
 	uploader := s3manager.NewUploader(sess)
 	_, err := uploader.Upload(&s3manager.UploadInput{
 		Bucket: aws.String(config.Bucket),
@@ -111,8 +111,8 @@ func (m *Mode) UploadBackupToS3(file *os.File) error {
 	return err
 }
 
-func (m *Mode) DeleteOtherBackupsForVolume(backupFileKey, volumeName string) error {
-	objects, err := m.ListBackups(volumeName)
+func DeleteOtherBackupsForVolume(backupFileKey, volumeName string) error {
+	objects, err := ListBackups(volumeName)
 	if err != nil {
 		return err
 	}
@@ -121,15 +121,15 @@ func (m *Mode) DeleteOtherBackupsForVolume(backupFileKey, volumeName string) err
 		if *obj.Key == backupFileKey {
 			continue
 		}
-		if err := m.DeleteBackupFromS3(*obj.Key); err != nil {
+		if err := DeleteBackupFromS3(*obj.Key); err != nil {
 			log.Printf("failed deleting backup for key %s: %s\n", *obj.Key, err)
 		}
 	}
 	return nil
 }
 
-func (m *Mode) ListBackups(prefix string) ([]*s3.Object, error) {
-	sess := m.newSession()
+func ListBackups(prefix string) ([]*s3.Object, error) {
+	sess := newSession()
 	config := fromEnv()
 	svc := s3.New(sess)
 	resp, err := svc.ListObjectsV2(&s3.ListObjectsV2Input{Bucket: aws.String(config.Bucket), Prefix: aws.String(prefix)})
@@ -139,17 +139,17 @@ func (m *Mode) ListBackups(prefix string) ([]*s3.Object, error) {
 	return resp.Contents, nil
 }
 
-func (m *Mode) DeleteBackupFromS3(key string) error {
-	sess := m.newSession()
+func DeleteBackupFromS3(key string) error {
+	sess := newSession()
 	config := fromEnv()
 	svc := s3.New(sess)
 	_, err := svc.DeleteObject(&s3.DeleteObjectInput{Bucket: aws.String(config.Bucket), Key: aws.String(key)})
 	return err
 }
 
-func (m *Mode) DownloadFromS3(key string, writer io.WriterAt) error {
+func DownloadFromS3(key string, writer io.WriterAt) error {
 	config := fromEnv()
-	downloader := s3manager.NewDownloader(m.newSession())
+	downloader := s3manager.NewDownloader(newSession())
 
 	_, err := downloader.Download(writer,
 		&s3.GetObjectInput{
@@ -160,8 +160,8 @@ func (m *Mode) DownloadFromS3(key string, writer io.WriterAt) error {
 	return err
 }
 
-func (m *Mode) FindMostRecentBackupForVolume(volumeName string) (*s3.Object, error) {
-	backupsForVolume, err := m.ListBackups(volumeName)
+func FindMostRecentBackupForVolume(volumeName string) (*s3.Object, error) {
+	backupsForVolume, err := ListBackups(volumeName)
 	if err != nil {
 		return nil, err
 	}
