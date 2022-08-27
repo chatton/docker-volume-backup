@@ -124,7 +124,7 @@ func extractBackupModes(bks []periodic.Backup) []BackupMode {
 				Endpoint:           item.S3Options.AwsEndpoint,
 			}))
 		default:
-			panic(fmt.Sprintf("unknown backup modes specified: %s", item))
+			panic(fmt.Sprintf("unknown backup modes specified: %s", item.Type))
 		}
 	}
 	return backupModes
