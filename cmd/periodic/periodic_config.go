@@ -15,15 +15,15 @@ type Config struct {
 }
 
 type CronConfiguration struct {
-	Name     string   `yaml:"name"`
-	Schedule string   `yaml:"schedule"`
-	Backups  []Backup `yaml:"backups"`
+	Name        string   `yaml:"name"`
+	Schedule    string   `yaml:"schedule"`
+	ScheduleKey string   `yaml:"schedule_key"`
+	Backups     []Backup `yaml:"backups"`
 }
 
 type Backup struct {
 	Name              string             `yaml:"name"`
 	Type              string             `yaml:"type"`
-	ScheduleKey       string             `yaml:"schedule_key"`
 	FilesystemOptions *FilesystemOptions `yaml:"filesystem_options,omitempty"`
 	S3Options         *S3Options         `yaml:"s3_options,omitempty"`
 }

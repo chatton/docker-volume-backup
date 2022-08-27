@@ -7,9 +7,7 @@ import (
 	"time"
 
 	"docker-volume-backup/cmd/backups"
-	"docker-volume-backup/cmd/filebackup"
 	"docker-volume-backup/cmd/periodic"
-	"docker-volume-backup/cmd/s3backup"
 
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/mount"
@@ -18,10 +16,6 @@ import (
 )
 
 func init() {
-	//periodicBackupsCmd.Flags().String("cron", "", "cron usage")
-	//periodicBackupsCmd.Flags().String("host-path", "", "backup host path")
-	//periodicBackupsCmd.Flags().String("modes", "filesystem", "specified backup modes")
-	//periodicBackupsCmd.Flags().Int("retention-days", 0, "retention days")
 	rootCmd.AddCommand(periodicBackupsCmd)
 }
 
@@ -40,53 +34,12 @@ This mode is intended to be deployed alongside other containers and left running
 
 `,
 	Run: func(cmd *cobra.Command, args []string) {
-
-		//cron, err := cmd.Flags().GetString("cron")
-		//if err != nil {
-		//	panic(err)
-		//}
-		//
-		//hostPath, err := cmd.Flags().GetString("host-path")
-		//if err != nil {
-		//	panic(err)
-		//}
-		//retainForDays, err := cmd.Flags().GetInt("retention-days")
-		//if err != nil {
-		//	panic(err)
-		//}
-		//
-		//mode, err := cmd.Flags().GetString("modes")
-		//if err != nil {
-		//	panic(err)
-		//}
-
 		periodicConfig, err := periodic.LoadConfig()
 		if err != nil {
 			log.Fatalf("failed loading config: %s", err)
 		}
 		cmdPerformBackups(periodicConfig)
 	},
-}
-
-func extractBackupModes(bks []periodic.Backup) []backups.BackupMode {
-	var backupModes []backups.BackupMode
-	for _, item := range bks {
-		switch item.Type {
-		case "filesystem":
-			backupModes = append(backupModes, filebackup.NewMode(item.FilesystemOptions.Hostpath))
-		case "s3":
-			backupModes = append(backupModes, s3backup.NewMode(item.S3Options.Hostpath, s3backup.Config{
-				AwsAccessKeyId:     item.S3Options.AwsAccessKeyID,
-				AwsSecretAccessKey: item.S3Options.AwsSecretAccessKey,
-				AwsRegion:          item.S3Options.AwsDefaultRegion,
-				Bucket:             item.S3Options.AwsBucket,
-				Endpoint:           item.S3Options.AwsEndpoint,
-			}))
-		default:
-			panic(fmt.Sprintf("unknown backup modes specified: %s", item))
-		}
-	}
-	return backupModes
 }
 
 const (
@@ -143,7 +96,7 @@ func cmdPerformBackups(cfg periodic.Config) {
 		log.Printf("running backups with cron schedule: %q", configuration.Schedule)
 		_, err := s.Cron(configuration.Schedule).Do(func() {
 			log.Printf("performing %s backups\n", configuration.Name)
-			if err := backups.PerformBackups(extractBackupModes(configuration.Backups)...); err != nil {
+			if err := backups.PerformBackups(configuration.ScheduleKey, configuration.Backups...); err != nil {
 				log.Printf("failed performing backups: %s", err)
 			}
 		})

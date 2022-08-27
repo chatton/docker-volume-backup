@@ -22,8 +22,8 @@ var (
 	BackupEnabledLabelKey = newLabel("enabled")
 	VolumesLabelKey       = newLabel("volumes")
 	TypeLabelKey          = newLabel("type")
-
-	LabelTypeTask = "task"
+	ScheduleLabelKey      = newLabel("key")
+	LabelTypeTask         = "task"
 )
 
 func Task() map[string]string {
@@ -37,4 +37,11 @@ func BackupEnabledFilters() filters.Args {
 		Key:   "label",
 		Value: newFilterValue(BackupEnabledLabelKey, "true"),
 	})
+}
+
+// BackupScheduleFilters returns the labels required for a specific schedule.
+func BackupScheduleFilters(scheduleKey string) filters.Args {
+	backupEnabled := BackupEnabledFilters()
+	backupEnabled.Add(ScheduleLabelKey, scheduleKey)
+	return backupEnabled
 }
