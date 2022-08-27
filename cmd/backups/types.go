@@ -21,5 +21,5 @@ type Config struct {
 }
 
 type BackupMode interface {
-	CrateBackup(ctx context.Context, cli *client.Client, mountPoint types.MountPoint) error
+	CreateBackup(ctx context.Context, cli *client.Client, mountPoint types.MountPoint) error
 }

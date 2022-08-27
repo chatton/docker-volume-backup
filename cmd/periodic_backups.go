@@ -8,6 +8,7 @@ import (
 
 	"docker-volume-backup/cmd/backups"
 	"docker-volume-backup/cmd/filebackup"
+	"docker-volume-backup/cmd/periodic"
 	"docker-volume-backup/cmd/s3backup"
 
 	"github.com/docker/docker/api/types"
@@ -17,10 +18,10 @@ import (
 )
 
 func init() {
-	periodicBackupsCmd.Flags().String("cron", "", "cron usage")
-	periodicBackupsCmd.Flags().String("host-path", "", "backup host path")
-	periodicBackupsCmd.Flags().String("modes", "filesystem", "specified backup modes")
-	periodicBackupsCmd.Flags().Int("retention-days", 0, "retention days")
+	//periodicBackupsCmd.Flags().String("cron", "", "cron usage")
+	//periodicBackupsCmd.Flags().String("host-path", "", "backup host path")
+	//periodicBackupsCmd.Flags().String("modes", "filesystem", "specified backup modes")
+	//periodicBackupsCmd.Flags().Int("retention-days", 0, "retention days")
 	rootCmd.AddCommand(periodicBackupsCmd)
 }
 
@@ -40,43 +41,47 @@ This mode is intended to be deployed alongside other containers and left running
 `,
 	Run: func(cmd *cobra.Command, args []string) {
 
-		cron, err := cmd.Flags().GetString("cron")
-		if err != nil {
-			panic(err)
-		}
+		//cron, err := cmd.Flags().GetString("cron")
+		//if err != nil {
+		//	panic(err)
+		//}
+		//
+		//hostPath, err := cmd.Flags().GetString("host-path")
+		//if err != nil {
+		//	panic(err)
+		//}
+		//retainForDays, err := cmd.Flags().GetInt("retention-days")
+		//if err != nil {
+		//	panic(err)
+		//}
+		//
+		//mode, err := cmd.Flags().GetString("modes")
+		//if err != nil {
+		//	panic(err)
+		//}
 
-		hostPath, err := cmd.Flags().GetString("host-path")
+		periodicConfig, err := periodic.LoadConfig()
 		if err != nil {
-			panic(err)
+			log.Fatalf("failed loading config: %s", err)
 		}
-		retainForDays, err := cmd.Flags().GetInt("retention-days")
-		if err != nil {
-			panic(err)
-		}
-
-		mode, err := cmd.Flags().GetString("modes")
-		if err != nil {
-			panic(err)
-		}
-
-		cmdPerformBackups(config{
-			hostPathForBackups: hostPath,
-			cronSchedule:       cron,
-			retainForDays:      retainForDays,
-			modes:              mode,
-		})
+		cmdPerformBackups(periodicConfig)
 	},
 }
 
-func extractBackupModes(cfg config) []backups.BackupMode {
-	modes := strings.Split(cfg.modes, ",")
+func extractBackupModes(bks []periodic.Backup) []backups.BackupMode {
 	var backupModes []backups.BackupMode
-	for _, item := range modes {
-		switch item {
+	for _, item := range bks {
+		switch item.Type {
 		case "filesystem":
-			backupModes = append(backupModes, filebackup.NewMode(cfg.hostPathForBackups))
+			backupModes = append(backupModes, filebackup.NewMode(item.FilesystemOptions.Hostpath))
 		case "s3":
-			backupModes = append(backupModes, s3backup.NewMode(cfg.hostPathForBackups))
+			backupModes = append(backupModes, s3backup.NewMode(item.S3Options.Hostpath, s3backup.Config{
+				AwsAccessKeyId:     item.S3Options.AwsAccessKeyID,
+				AwsSecretAccessKey: item.S3Options.AwsSecretAccessKey,
+				AwsRegion:          item.S3Options.AwsDefaultRegion,
+				Bucket:             item.S3Options.AwsBucket,
+				Endpoint:           item.S3Options.AwsEndpoint,
+			}))
 		default:
 			panic(fmt.Sprintf("unknown backup modes specified: %s", item))
 		}
@@ -132,17 +137,19 @@ func getVolumeNamesToBackup(c types.Container) []string {
 	return volumesToBackup
 }
 
-func cmdPerformBackups(cfg config) {
+func cmdPerformBackups(cfg periodic.Config) {
 	s := gocron.NewScheduler(time.UTC)
-	log.Printf("running backups with cron schedule: %q", cfg.cronSchedule)
-	_, err := s.Cron(cfg.cronSchedule).Do(func() {
-		log.Println("performing backups")
-		if err := backups.PerformBackups(extractBackupModes(cfg)...); err != nil {
-			log.Printf("failed performing backups: %s", err)
+	for _, configuration := range cfg.PeriodicBackups {
+		log.Printf("running backups with cron schedule: %q", configuration.Schedule)
+		_, err := s.Cron(configuration.Schedule).Do(func() {
+			log.Printf("performing %s backups\n", configuration.Name)
+			if err := backups.PerformBackups(extractBackupModes(configuration.Backups)...); err != nil {
+				log.Printf("failed performing backups: %s", err)
+			}
+		})
+		if err != nil {
+			log.Fatalf("error starting schedule: %s", err)
 		}
-	})
-	if err != nil {
-		log.Fatalf("error starting schedule: %s", err)
 	}
 	s.StartBlocking()
 }

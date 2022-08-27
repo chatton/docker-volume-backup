@@ -23,7 +23,7 @@ func NewMode(hostPath string) *Mode {
 	}
 }
 
-func (f *Mode) CrateBackup(ctx context.Context, cli *client.Client, mountPoint types.MountPoint) error {
+func (f *Mode) CreateBackup(ctx context.Context, cli *client.Client, mountPoint types.MountPoint) error {
 	log.Println("performing filesystem backup")
 	nameOfBackedupArchive := fmt.Sprintf("%s-%s.tar.gz", mountPoint.Name, dateutil.GetDayMonthYear())
 	cmd := []string{"tar", "-czvf", fmt.Sprintf("/backups/%s", nameOfBackedupArchive), "/data"}

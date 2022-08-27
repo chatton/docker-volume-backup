@@ -71,7 +71,7 @@ func backupContainerMount(ctx context.Context, cli *client.Client, c types.Conta
 
 		log.Printf("backing up volume: %s (%s)", m.Name, c.ID)
 		for _, bm := range backupModes {
-			if err := bm.CrateBackup(ctx, cli, m); err != nil {
+			if err := bm.CreateBackup(ctx, cli, m); err != nil {
 				return fmt.Errorf("failed creating backup: %s", err)
 			}
 		}

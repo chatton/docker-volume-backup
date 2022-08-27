@@ -1,4 +1,5 @@
 .idea
+data
 docker-volume-backup
 build
 s3.env
