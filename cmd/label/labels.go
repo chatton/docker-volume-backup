@@ -42,6 +42,6 @@ func BackupEnabledFilters() filters.Args {
 // BackupScheduleFilters returns the labels required for a specific schedule.
 func BackupScheduleFilters(scheduleKey string) filters.Args {
 	backupEnabled := BackupEnabledFilters()
-	backupEnabled.Add(ScheduleLabelKey, scheduleKey)
+	backupEnabled.Add("label", newFilterValue(ScheduleLabelKey, scheduleKey))
 	return backupEnabled
 }

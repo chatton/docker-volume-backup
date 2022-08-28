@@ -80,14 +80,15 @@ func getVolumeNamesToBackup(c types.Container) []string {
 func cmdPerformBackups(cfg periodic.Config) {
 	s := gocron.NewScheduler(time.UTC)
 	for _, configuration := range cfg.PeriodicBackups {
-		log.Printf("running %s [%s] backups with cron schedule: %q", configuration.Name, configuration.ScheduleKey, configuration.Schedule)
-		_, err := s.Cron(configuration.Schedule).Do(func() {
-			log.Printf("performing %s [%s] backups\n", configuration.Name, configuration.ScheduleKey)
-			if len(configuration.Backups) == 0 {
+		cfg := configuration
+		log.Printf("running %s [%s] backups with cron schedule: %q", cfg.Name, cfg.ScheduleKey, cfg.Schedule)
+		_, err := s.Cron(cfg.Schedule).Do(func() {
+			log.Printf("performing %s [%s] backups\n", cfg.Name, cfg.ScheduleKey)
+			if len(cfg.Backups) == 0 {
 				log.Printf("skipping backup as no backups are specified\n")
 				return
 			}
-			if err := backups.PerformBackups(configuration); err != nil {
+			if err := backups.PerformBackups(cfg); err != nil {
 				log.Printf("failed performing backups: %s", err)
 			}
 		})
