@@ -7,8 +7,7 @@ import (
 	"time"
 
 	"docker-volume-backup/cmd/backups"
-	"docker-volume-backup/cmd/filebackup"
-	"docker-volume-backup/cmd/s3backup"
+	"docker-volume-backup/cmd/periodic"
 
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/mount"
@@ -17,10 +16,6 @@ import (
 )
 
 func init() {
-	periodicBackupsCmd.Flags().String("cron", "", "cron usage")
-	periodicBackupsCmd.Flags().String("host-path", "", "backup host path")
-	periodicBackupsCmd.Flags().String("modes", "filesystem", "specified backup modes")
-	periodicBackupsCmd.Flags().Int("retention-days", 0, "retention days")
 	rootCmd.AddCommand(periodicBackupsCmd)
 }
 
@@ -39,49 +34,12 @@ This mode is intended to be deployed alongside other containers and left running
 
 `,
 	Run: func(cmd *cobra.Command, args []string) {
-
-		cron, err := cmd.Flags().GetString("cron")
+		periodicConfig, err := periodic.LoadConfig()
 		if err != nil {
-			panic(err)
+			log.Fatalf("failed loading config: %s", err)
 		}
-
-		hostPath, err := cmd.Flags().GetString("host-path")
-		if err != nil {
-			panic(err)
-		}
-		retainForDays, err := cmd.Flags().GetInt("retention-days")
-		if err != nil {
-			panic(err)
-		}
-
-		mode, err := cmd.Flags().GetString("modes")
-		if err != nil {
-			panic(err)
-		}
-
-		cmdPerformBackups(config{
-			hostPathForBackups: hostPath,
-			cronSchedule:       cron,
-			retainForDays:      retainForDays,
-			modes:              mode,
-		})
+		cmdPerformBackups(periodicConfig)
 	},
-}
-
-func extractBackupModes(cfg config) []backups.BackupMode {
-	modes := strings.Split(cfg.modes, ",")
-	var backupModes []backups.BackupMode
-	for _, item := range modes {
-		switch item {
-		case "filesystem":
-			backupModes = append(backupModes, filebackup.NewMode(cfg.hostPathForBackups))
-		case "s3":
-			backupModes = append(backupModes, s3backup.NewMode(cfg.hostPathForBackups))
-		default:
-			panic(fmt.Sprintf("unknown backup modes specified: %s", item))
-		}
-	}
-	return backupModes
 }
 
 const (
@@ -99,19 +57,6 @@ var (
 
 	LabelTypeTask = "task"
 )
-
-type config struct {
-	// hostPathForBackups is the absolute path that where backups will be stored.
-	hostPathForBackups string
-
-	// cronSchedule is the cron schedule that backups will run on.
-	cronSchedule string
-
-	// retainForDays is the number of days that backups should be stored for.
-	retainForDays int
-
-	modes string
-}
 
 // getVolumeNamesToBackup extracts a list of volumes to be backed up from
 // the container labels.
@@ -132,17 +77,24 @@ func getVolumeNamesToBackup(c types.Container) []string {
 	return volumesToBackup
 }
 
-func cmdPerformBackups(cfg config) {
+func cmdPerformBackups(cfg periodic.Config) {
 	s := gocron.NewScheduler(time.UTC)
-	log.Printf("running backups with cron schedule: %q", cfg.cronSchedule)
-	_, err := s.Cron(cfg.cronSchedule).Do(func() {
-		log.Println("performing backups")
-		if err := backups.PerformBackups(extractBackupModes(cfg)...); err != nil {
-			log.Printf("failed performing backups: %s", err)
+	for _, configuration := range cfg.PeriodicBackups {
+		cfg := configuration
+		log.Printf("running %s [%s] backups with cron schedule: %q", cfg.Name, cfg.ScheduleKey, cfg.Schedule)
+		_, err := s.Cron(cfg.Schedule).Do(func() {
+			log.Printf("performing %s [%s] backups\n", cfg.Name, cfg.ScheduleKey)
+			if len(cfg.Backups) == 0 {
+				log.Printf("skipping backup as no backups are specified\n")
+				return
+			}
+			if err := backups.PerformBackups(cfg); err != nil {
+				log.Printf("failed performing backups: %s", err)
+			}
+		})
+		if err != nil {
+			log.Fatalf("error starting schedule: %s", err)
 		}
-	})
-	if err != nil {
-		log.Fatalf("error starting schedule: %s", err)
 	}
 	s.StartBlocking()
 }

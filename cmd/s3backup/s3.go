@@ -28,14 +28,14 @@ type Mode struct {
 	config             Config
 }
 
-func NewMode(hostPath string) *Mode {
+func NewMode(hostPath string, s3Config Config) *Mode {
 	return &Mode{
 		hostPathForBackups: hostPath,
-		config:             fromEnv(),
+		config:             s3Config,
 	}
 }
 
-func (s *Mode) CrateBackup(ctx context.Context, cli *client.Client, mountPoint types.MountPoint) error {
+func (s *Mode) CreateBackup(ctx context.Context, cli *client.Client, mountPoint types.MountPoint) error {
 	nameOfBackedupArchive := fmt.Sprintf("%s-%s.tar.gz", mountPoint.Name, dateutil.GetDayMonthYear())
 	filePath := fmt.Sprintf("/backups/.s3tmp/%s", nameOfBackedupArchive)
 	cmd := []string{"tar", "-czvf", filePath, "/data"}

@@ -7,7 +7,10 @@ import (
 	"strings"
 	"time"
 
+	"docker-volume-backup/cmd/filebackup"
 	"docker-volume-backup/cmd/label"
+	"docker-volume-backup/cmd/periodic"
+	"docker-volume-backup/cmd/s3backup"
 	"docker-volume-backup/cmd/util/collectionutil"
 
 	"github.com/docker/docker/api/types"
@@ -15,16 +18,20 @@ import (
 	"github.com/docker/docker/client"
 )
 
-func PerformBackups(backupModes ...BackupMode) error {
+func PerformBackups(cfg periodic.CronConfiguration) error {
+	backupModes := extractBackupModes(cfg.Backups)
+
 	ctx := context.TODO()
 
 	cli, err := client.NewClientWithOpts(client.FromEnv)
 	if err != nil {
 		return err
 	}
-	// list all containers with backup enabled
+	// list all containers with backup enabled and which have the label associated
+	// with this backup type.
+	// e.g. ie.cianhatton.backup.key: nightly
 	containers, err := cli.ContainerList(context.Background(), types.ContainerListOptions{
-		Filters: label.BackupEnabledFilters(),
+		Filters: label.BackupScheduleFilters(cfg.ScheduleKey),
 		All:     true,
 	})
 	if err != nil {
@@ -71,7 +78,7 @@ func backupContainerMount(ctx context.Context, cli *client.Client, c types.Conta
 
 		log.Printf("backing up volume: %s (%s)", m.Name, c.ID)
 		for _, bm := range backupModes {
-			if err := bm.CrateBackup(ctx, cli, m); err != nil {
+			if err := bm.CreateBackup(ctx, cli, m); err != nil {
 				return fmt.Errorf("failed creating backup: %s", err)
 			}
 		}
@@ -96,4 +103,26 @@ func getVolumeNamesToBackup(c types.Container) []string {
 	}
 
 	return volumesToBackup
+}
+
+func extractBackupModes(bks []periodic.Backup) []BackupMode {
+	var backupModes []BackupMode
+	for _, item := range bks {
+		switch item.Type {
+		case "filesystem":
+			backupModes = append(backupModes, filebackup.NewMode(item.FilesystemOptions.Hostpath))
+		case "s3":
+			backupModes = append(backupModes, s3backup.NewMode(item.S3Options.Hostpath, s3backup.Config{
+				// TODO: this is not being used yet, it's still using env vars
+				AwsAccessKeyId:     item.S3Options.AwsAccessKeyID,
+				AwsSecretAccessKey: item.S3Options.AwsSecretAccessKey,
+				AwsRegion:          item.S3Options.AwsDefaultRegion,
+				Bucket:             item.S3Options.AwsBucket,
+				Endpoint:           item.S3Options.AwsEndpoint,
+			}))
+		default:
+			panic(fmt.Sprintf("unknown backup modes specified: %s", item.Type))
+		}
+	}
+	return backupModes
 }

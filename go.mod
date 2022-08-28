@@ -9,6 +9,7 @@ require (
 	github.com/opencontainers/image-spec v1.0.2
 	github.com/spf13/cobra v1.5.0
 	github.com/stretchr/testify v1.7.0
+	gopkg.in/yaml.v2 v2.4.0
 )
 
 require (
